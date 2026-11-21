@@ -260,6 +260,16 @@ function detectMapType(line) {
   return "any";
 }
 
+function getTeamCompStyle(heroIds) {
+  const counts = { dive: 0, brawl: 0, poke: 0 };
+  for (const id of heroIds) {
+    const h = HEROES[id];
+    if (h && counts[h.comp] !== undefined) counts[h.comp] += 1;
+  }
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  return sorted[0][1] > 0 ? sorted[0][0] : "brawl";
+}
+
 function detectComp(line, allies) {
   if (line.includes("돌진") || line.includes("다이브")) return "dive";
   if (line.includes("포킹") || line.includes("저격")) return "poke";
@@ -307,16 +317,6 @@ function parseBulkTournamentText(rawText) {
     }
   }
   return parsedRecords;
-}
-
-function getTeamCompStyle(heroIds) {
-  const counts = { dive: 0, brawl: 0, poke: 0 };
-  for (const id of heroIds) {
-    const h = HEROES[id];
-    if (h && counts[h.comp] !== undefined) counts[h.comp] += 1;
-  }
-  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  return sorted[0][1] > 0 ? sorted[0][0] : "brawl";
 }
 
 function parsePatchNotesText(plainText, title = "수동/자동 패치 분석") {
@@ -615,18 +615,34 @@ function buildRecommendations(state) {
   const myHeroInfo = myHeroId ? { id: myHeroId, ...HEROES[myHeroId], name: HEROES[myHeroId].koName } : null;
   const preferredRole = myHeroInfo ? myHeroInfo.role : null;
 
-  const swapRecommendations = Object.keys(HEROES)
-    .filter((id) => id !== myHeroId)
+  const allRoleCandidates = Object.keys(HEROES)
     .filter((id) => !preferredRole || HEROES[id].role === preferredRole)
     .map((id) => scoreCandidate(id, allies, enemies, preferredRole, state.mapType, state.situation))
     .filter(Boolean)
-    .sort((a, b) => b.score - a.score)
+    .sort((a, b) => b.score - a.score);
+
+  const myCurrentScored = myHeroId
+    ? allRoleCandidates.find((c) => c.id === myHeroId) || null
+    : null;
+
+  const swapRecommendations = allRoleCandidates
+    .filter((c) => c.id !== myHeroId)
+    .filter((c) => !myCurrentScored || c.score >= myCurrentScored.score - 3)
     .slice(0, 3);
+
+  if (myCurrentScored && (swapRecommendations.length === 0 || myCurrentScored.score >= swapRecommendations[0].score)) {
+    swapRecommendations.unshift({
+      ...myCurrentScored,
+      name: `${myCurrentScored.name} (현재 픽 유지)`,
+      reason: `현재 조합·상성 기준 최적 픽 · ${myCurrentScored.reason}`
+    });
+    swapRecommendations.splice(3);
+  }
 
   const topByRole = { tank: [], dps: [], support: [] };
   for (const role of ["tank", "dps", "support"]) {
     topByRole[role] = Object.keys(HEROES)
-      .filter((id) => HEROES[id].role === role && id !== myHeroId)
+      .filter((id) => HEROES[id].role === role)
       .map((id) => scoreCandidate(id, allies, enemies, role, state.mapType, state.situation))
       .filter(Boolean)
       .sort((a, b) => b.score - a.score)
