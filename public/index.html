@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>오버워치 2 패치·대회 분석 및 실시간 영웅 추천</title>
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --panel: #131a26;
+      --panel-2: #192232;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #eef2f7;
+      --muted: #8b99b0;
+      --accent: #ff9c1a;
+      --ally: #38bdf8;
+      --ally-soft: rgba(56, 189, 248, 0.14);
+      --enemy: #fb7185;
+      --enemy-soft: rgba(251, 113, 133, 0.14);
+      --good: #34d399;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: radial-gradient(circle at top right, #1b263b 0%, var(--bg) 55%);
+      color: var(--text);
+      font-family: "Segoe UI", "Malgun Gothic", -apple-system, sans-serif;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1420px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 22px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-badge {
+      background: linear-gradient(135deg, #ff9c1a, #ff5e1a);
+      color: #0b0f17;
+      font-weight: 800;
+      font-size: 13px;
+      padding: 6px 10px;
+      border-radius: 8px;
+    }
+
+    .brand h1 {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .status-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .live-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--good);
+      box-shadow: 0 0 10px var(--good);
+      display: inline-block;
+      margin-right: 6px;
+    }
+
+    .btn {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #0b0f17;
+      border-color: var(--accent);
+    }
+
+    .btn-primary:hover {
+      background: #ffad3d;
+      color: #0b0f17;
+    }
+
+    .btn-danger:hover {
+      border-color: var(--enemy);
+      color: var(--enemy);
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px 20px;
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hero-banner {
+      display: grid;
+      grid-template-columns: 1.15fr 1.85fr;
+      gap: 18px;
+    }
+
+    @media (max-width: 980px) {
+      .hero-banner {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .my-hero-box {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .my-hero-display {
+      background: linear-gradient(135deg, rgba(255, 156, 26, 0.16), rgba(56, 189, 248, 0.08));
+      border: 1px solid rgba(255, 156, 26, 0.35);
+      border-radius: 14px;
+      padding: 14px 16px;
+    }
+
+    .my-hero-name {
+      font-size: 25px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .my-hero-sub {
+      font-size: 13px;
+      color: var(--accent);
+      margin-top: 4px;
+      font-weight: 600;
+    }
+
+    .context-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    select.hero-select,
+    input.text-input,
+    textarea.text-area {
+      width: 100%;
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 9px 12px;
+      font-size: 13px;
+      outline: none;
+      font-family: inherit;
+    }
+
+    .swap-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    @media (max-width: 780px) {
+      .swap-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .swap-card {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .swap-card:first-child {
+      border-color: rgba(255, 156, 26, 0.55);
+      background: linear-gradient(180deg, rgba(255, 156, 26, 0.12), var(--panel-2));
+    }
+
+    .swap-rank {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--accent);
+    }
+
+    .swap-name {
+      font-size: 19px;
+      font-weight: 800;
+    }
+
+    .swap-score {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--good);
+    }
+
+    .swap-reason {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .teams-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    @media (max-width: 900px) {
+      .teams-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .team-slots {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-height: 44px;
+    }
+
+    .slot-pill {
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+
+    .slot-ally {
+      background: var(--ally-soft);
+      color: var(--ally);
+      border-color: rgba(56, 189, 248, 0.35);
+    }
+
+    .slot-enemy {
+      background: var(--enemy-soft);
+      color: var(--enemy);
+      border-color: rgba(251, 113, 133, 0.35);
+    }
+
+    .slot-me {
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+
+    .dual-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    @media (max-width: 1024px) {
+      .dual-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .badge-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .meta-pill {
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+    }
+
+    .meta-buff {
+      color: var(--good);
+      border-color: rgba(52, 211, 153, 0.35);
+    }
+
+    .meta-nerf {
+      color: var(--enemy);
+      border-color: rgba(251, 113, 133, 0.35);
+    }
+
+    .picker-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .mode-switch {
+      display: flex;
+      gap: 8px;
+    }
+
+    .mode-btn.active {
+      background: var(--accent);
+      color: #0b0f17;
+      border-color: var(--accent);
+    }
+
+    .hero-chips {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+      gap: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .hero-chip {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 7px 10px;
+      text-align: left;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .hero-chip:hover {
+      border-color: var(--accent);
+    }
+
+    .hero-chip .role-tag {
+      display: block;
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .pro-form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .pro-submit-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .pro-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 220px;
+      overflow-y: auto;
+      margin-top: 10px;
+    }
+
+    .pro-row {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .pro-row-meta {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 3px;
+    }
+
+    .roles-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 980px) {
+      .roles-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .role-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--panel-2);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-top: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .role-item-left .name {
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .role-item-left .reason {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .role-item-score {
+      font-weight: 800;
+      color: var(--accent);
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-badge">실시간 메타·대회 분석</span>
+        <h1>오버워치 2 패치·대회 기반 영웅 추천</h1>
+      </div>
+      <div class="status-group">
+        <span><span class="live-dot"></span>실시간 연결됨</span>
+        <span id="patchBadge">패치 확인 중</span>
+        <span id="proCountBadge">대회 기록 0건</span>
+        <span id="updatedTime">대기 중</span>
+        <button class="btn btn-danger" onclick="resetAll()">전체 초기화</button>
+      </div>
+    </header>
+
+    <section class="hero-banner">
+      <div class="card my-hero-box">
+        <div class="card-title">
+          <span>내 현재 영웅 및 경기 상황</span>
+          <span>탭 인식 자동 연동</span>
+        </div>
+        <div class="my-hero-display">
+          <div>
+            <div class="my-hero-name" id="myHeroName">미지정</div>
+            <div class="my-hero-sub" id="myHeroMeta">탭 키 인식 또는 아래에서 내 영웅을 선택하세요</div>
+          </div>
+        </div>
+        <select class="hero-select" id="myHeroSelect" onchange="setMyHero(this.value)">
+          <option value="">-- 내 영웅 선택 --</option>
+        </select>
+        <div class="context-row">
+          <select class="hero-select" id="mapTypeSelect" onchange="updateContext()">
+            <option value="any">전장 유형: 전체</option>
+            <option value="control">쟁탈 (거점)</option>
+            <option value="escort">호위</option>
+            <option value="hybrid">혼합</option>
+            <option value="push">밀기</option>
+            <option value="flashpoint">플래시포인트</option>
+            <option value="clash">격돌</option>
+          </select>
+          <input class="text-input" id="situationInput" type="text" placeholder="상황 (예: 공격, 수비, 고지대)" onchange="updateContext()" />
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>지금 바꿀 만한 추천 영웅 TOP 3</span>
+          <span id="swapScopeLabel">상성 + 최신 패치 + 대회 분석 반영</span>
+        </div>
+        <div class="swap-grid" id="swapGrid"></div>
+      </div>
+    </section>
+
+    <section class="teams-grid">
+      <div class="card">
+        <div class="card-title">
+          <span>아군 조합</span>
+          <span id="allyCount">0 / 5</span>
+        </div>
+        <div class="team-slots" id="allySlots"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">
+          <span>적군 조합</span>
+          <span id="enemyCount">0 / 5</span>
+        </div>
+        <div class="team-slots" id="enemySlots"></div>
+      </div>
+    </section>
+
+    <section class="dual-grid">
+      <div class="card">
+        <div class="card-title">
+          <span>최신 패치노트 메타 자동 반영</span>
+          <button class="btn" onclick="syncPatchNow()">패치노트 지금 동기화</button>
+        </div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:8px;" id="patchTitleText">패치 데이터 불러오는 중...</div>
+        <div class="badge-list" id="patchHeroBadges"></div>
+        <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px;">
+          <textarea class="text-area" id="manualPatchText" rows="3" placeholder="패치노트 본문을 붙여넣으면 영웅별 상향/하향을 자동 분석해 점수에 반영합니다."></textarea>
+          <button class="btn" onclick="submitManualPatch()">붙여넣은 패치노트 분석 반영</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>대회 조합 분석 및 일괄 DB 등록</span>
+          <span id="proSummaryText">집계 대기 중</span>
+        </div>
+        <div class="badge-list" id="proTopHeroes" style="margin-bottom:10px;"></div>
+        <div class="pro-form-grid">
+          <select class="hero-select" id="proCompSelect">
+            <option value="dive">돌진 조합</option>
+            <option value="brawl">난전 조합</option>
+            <option value="poke">포킹 조합</option>
+          </select>
+          <select class="hero-select" id="proMapSelect">
+            <option value="any">전장 전체</option>
+            <option value="control">쟁탈</option>
+            <option value="escort">호위</option>
+            <option value="hybrid">혼합</option>
+            <option value="push">밀기</option>
+            <option value="flashpoint">플래시포인트</option>
+            <option value="clash">격돌</option>
+          </select>
+          <select class="hero-select" id="proOutcomeSelect">
+            <option value="win">승리 / 효과적</option>
+            <option value="loss">패배 / 비추천</option>
+          </select>
+        </div>
+        <div class="pro-submit-row">
+          <input class="text-input" id="proNoteInput" type="text" placeholder="단건 메모 (예: 호위 포킹 상대 윈스턴·트레이서·키리코 돌진 전환)" />
+          <button class="btn btn-primary" onclick="saveProStrategy()">단건 저장</button>
+        </div>
+        <textarea class="text-area" id="bulkTournamentText" rows="3" placeholder="대회 로그 일괄 붙여넣기 (한 줄에 한 세트·상황씩 입력, 예: 1세트 호위 돌진 윈스턴 트레이서 겐지 아나 키리코 vs 오리사 소전 애쉬 바티스트 루시우 승리)"></textarea>
+        <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <span style="font-size:12px;color:var(--muted);" id="bulkResultMsg">여러 줄을 한 번에 붙여넣고 일괄 등록을 누르세요.</span>
+          <button class="btn btn-primary" onclick="submitBulkTournament()">일괄 DB 등록</button>
+        </div>
+        <div class="pro-list" id="proList"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="picker-toolbar">
+        <div class="card-title" style="margin-bottom:0;">
+          <span>수동 조합 편집기 (클릭해서 아군/적군 구성)</span>
+        </div>
+        <div class="mode-switch">
+          <button class="btn mode-btn active" id="modeAllyBtn" onclick="setPickMode('ally')">아군에 추가</button>
+          <button class="btn mode-btn" id="modeEnemyBtn" onclick="setPickMode('enemy')">적군에 추가</button>
+        </div>
+      </div>
+      <div class="hero-chips" id="heroChips"></div>
+    </section>
+
+    <section class="roles-grid">
+      <div class="card">
+        <div class="card-title"><span>탱커 추천 TOP 3</span></div>
+        <div id="roleTank"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span>딜러 추천 TOP 3</span></div>
+        <div id="roleDps"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span>힐러 추천 TOP 3</span></div>
+        <div id="roleSupport"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    let latestData = null;
+    let pickMode = "ally";
+
+    const roleLabelMap = { tank: "탱커", dps: "딜러", support: "힐러" };
+    const compLabelMap = { dive: "돌진", brawl: "난전", poke: "포킹" };
+    const mapLabelMap = {
+      any: "전체",
+      control: "쟁탈",
+      escort: "호위",
+      hybrid: "혼합",
+      push: "밀기",
+      flashpoint: "플래시포인트",
+      clash: "격돌"
+    };
+
+    function setPickMode(mode) {
+      pickMode = mode;
+      document.getElementById("modeAllyBtn").classList.toggle("active", mode === "ally");
+      document.getElementById("modeEnemyBtn").classList.toggle("active", mode === "enemy");
+    }
+
+    async function setMyHero(heroId) {
+      await fetch("/api/my-hero", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ myHero: heroId || null })
+      });
+    }
+
+    async function updateContext() {
+      const mapType = document.getElementById("mapTypeSelect").value;
+      const situation = document.getElementById("situationInput").value;
+      await fetch("/api/context", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mapType, situation })
+      });
+    }
+
+    async function syncPatchNow() {
+      document.getElementById("patchTitleText").textContent = "공식 패치노트 확인 중...";
+      const res = await fetch("/api/patch/sync", { method: "POST" });
+      const out = await res.json();
+      if (!out.ok) {
+        document.getElementById("patchTitleText").textContent = out.message || "패치노트 동기화 실패";
+      }
+    }
+
+    async function submitManualPatch() {
+      const text = document.getElementById("manualPatchText").value;
+      if (!text.trim()) return;
+      const res = await fetch("/api/patch/manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+      });
+      const out = await res.json();
+      if (out.ok) {
+        document.getElementById("manualPatchText").value = "";
+      }
+    }
+
+    async function saveProStrategy() {
+      if (!latestData) return;
+      const comp = document.getElementById("proCompSelect").value;
+      const mapType = document.getElementById("proMapSelect").value;
+      const outcome = document.getElementById("proOutcomeSelect").value;
+      const note = document.getElementById("proNoteInput").value;
+      const situation = document.getElementById("situationInput").value;
+
+      const res = await fetch("/api/strategies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          allies: latestData.allies,
+          enemies: latestData.enemies,
+          comp,
+          mapType,
+          situation,
+          outcome,
+          note
+        })
+      });
+      const out = await res.json();
+      if (out.ok) {
+        document.getElementById("proNoteInput").value = "";
+      }
+    }
+
+    async function submitBulkTournament() {
+      const text = document.getElementById("bulkTournamentText").value;
+      if (!text.trim()) return;
+      const res = await fetch("/api/strategies/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+      });
+      const out = await res.json();
+      if (out.ok) {
+        document.getElementById("bulkTournamentText").value = "";
+        document.getElementById("bulkResultMsg").textContent = `${out.addedCount}건 일괄 저장 완료 (누적 ${out.total}건)`;
+      } else {
+        document.getElementById("bulkResultMsg").textContent = out.message || "일괄 저장 실패";
+      }
+    }
+
+    async function deleteStrategy(id) {
+      await fetch(`/api/strategies/${id}`, { method: "DELETE" });
+    }
+
+    async function resetAll() {
+      await fetch("/api/reset", { method: "POST" });
+    }
+
+    async function toggleHeroInTeam(heroId) {
+      if (!latestData) return;
+      const allies = [...latestData.allies];
+      const enemies = [...latestData.enemies];
+
+      if (pickMode === "ally") {
+        if (allies.includes(heroId)) {
+          allies.splice(allies.indexOf(heroId), 1);
+        } else if (allies.length < 5) {
+          allies.push(heroId);
+        }
+      } else {
+        if (enemies.includes(heroId)) {
+          enemies.splice(enemies.indexOf(heroId), 1);
+        } else if (enemies.length < 5) {
+          enemies.push(heroId);
+        }
+      }
+
+      await fetch("/api/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ allies, enemies, myHero: latestData.myHero })
+      });
+    }
+
+    function render(data) {
+      latestData = data;
+      const heroes = data.heroes || {};
+      const rec = data.recommendations || { myHero: null, swapRecommendations: [], topByRole: { tank: [], dps: [], support: [] } };
+      const patchMeta = data.patchMeta || { latestPatchTitle: "없음", heroAdjustments: {} };
+      const insights = data.tournamentInsights || { totalMatches: 0, topProHeroes: [], recentPatterns: [] };
+
+      const t = new Date(data.updatedAt || Date.now());
+      document.getElementById("updatedTime").textContent = `갱신: ${t.toLocaleTimeString()}`;
+      document.getElementById("patchBadge").textContent = `패치: ${patchMeta.latestPatchTitle}`;
+      document.getElementById("proCountBadge").textContent = `대회 기록 ${insights.totalMatches}건`;
+
+      const selectEl = document.getElementById("myHeroSelect");
+      if (selectEl.options.length <= 1) {
+        Object.entries(heroes)
+          .sort((a, b) => a[1].koName.localeCompare(b[1].koName, "ko"))
+          .forEach(([id, info]) => {
+            const opt = document.createElement("option");
+            opt.value = id;
+            opt.textContent = `${info.koName} (${roleLabelMap[info.role]})`;
+            selectEl.appendChild(opt);
+          });
+      }
+      selectEl.value = data.myHero || "";
+      document.getElementById("mapTypeSelect").value = data.mapType || "any";
+
+      if (rec.myHero) {
+        document.getElementById("myHeroName").textContent = rec.myHero.name;
+        document.getElementById("myHeroMeta").textContent = `${roleLabelMap[rec.myHero.role]} · ${rec.myHero.compKo} 성향`;
+        document.getElementById("swapScopeLabel").textContent = `${rec.myHero.name} (${roleLabelMap[rec.myHero.role]}) 교체 추천`;
+      } else {
+        document.getElementById("myHeroName").textContent = "미지정";
+        document.getElementById("myHeroMeta").textContent = "내 영웅을 선택하면 같은 역할군 교체 픽을 우선 추천합니다";
+        document.getElementById("swapScopeLabel").textContent = "상성 + 최신 패치 + 대회 분석 반영";
+      }
+
+      const swapGrid = document.getElementById("swapGrid");
+      swapGrid.innerHTML = "";
+      (rec.swapRecommendations || []).forEach((item, idx) => {
+        const div = document.createElement("div");
+        div.className = "swap-card";
+        div.innerHTML = `
+          <div>
+            <div class="swap-rank">${idx + 1}순위 추천 교체 (${roleLabelMap[item.role]})</div>
+            <div class="swap-name">${item.name}</div>
+          </div>
+          <div class="swap-score">적합도 ${item.score}점</div>
+          <div class="swap-reason">${item.reason}</div>
+        `;
+        swapGrid.appendChild(div);
+      });
+
+      document.getElementById("allyCount").textContent = `${data.allies.length} / 5`;
+      document.getElementById("enemyCount").textContent = `${data.enemies.length} / 5`;
+
+      document.getElementById("allySlots").innerHTML = data.allies.length
+        ? data.allies.map((id) => {
+            const h = heroes[id];
+            const isMe = id === data.myHero;
+            return `<span class="slot-pill slot-ally ${isMe ? "slot-me" : ""}">${h ? h.koName : id}${isMe ? " (나)" : ""}</span>`;
+          }).join("")
+        : `<span style="color:var(--muted);font-size:13px;">인식된 아군이 없습니다.</span>`;
+
+      document.getElementById("enemySlots").innerHTML = data.enemies.length
+        ? data.enemies.map((id) => {
+            const h = heroes[id];
+            return `<span class="slot-pill slot-enemy">${h ? h.koName : id}</span>`;
+          }).join("")
+        : `<span style="color:var(--muted);font-size:13px;">인식된 적군이 없습니다.</span>`;
+
+      document.getElementById("patchTitleText").textContent = `반영 기준: ${patchMeta.latestPatchTitle}`;
+      const patchBadgesEl = document.getElementById("patchHeroBadges");
+      const adjEntries = Object.entries(patchMeta.heroAdjustments || {});
+      patchBadgesEl.innerHTML = adjEntries.length
+        ? adjEntries
+            .map(([id, info]) => {
+              const name = heroes[id] ? heroes[id].koName : id;
+              const cls = info.delta > 0 ? "meta-buff" : info.delta < 0 ? "meta-nerf" : "";
+              const sign = info.delta > 0 ? `+${info.delta}` : `${info.delta}`;
+              return `<span class="meta-pill ${cls}" title="${info.summary}">${name} ${info.status} (${sign})</span>`;
+            })
+            .join("")
+        : `<span style="color:var(--muted);font-size:12px;">아직 분석된 영웅 패치 내역이 없습니다.</span>`;
+
+      document.getElementById("proSummaryText").textContent = `누적 ${insights.totalMatches}경기 분석됨`;
+      document.getElementById("proTopHeroes").innerHTML = (insights.topProHeroes || []).length
+        ? insights.topProHeroes
+            .map((h) => `<span class="meta-pill">${h.name} (${h.picks}회 · 승률 ${h.winRate}%)</span>`)
+            .join("")
+        : `<span style="color:var(--muted);font-size:12px;">대회 조합을 저장하면 자주 쓰인 핵심 영웅과 상황별 패턴이 자동 집계됩니다.</span>`;
+
+      const proListEl = document.getElementById("proList");
+      proListEl.innerHTML = (insights.recentPatterns || []).length
+        ? insights.recentPatterns
+            .map((row) => {
+              const aNames = (row.allies || []).map((id) => (heroes[id] ? heroes[id].koName : id)).join(", ") || "없음";
+              const eNames = (row.enemies || []).map((id) => (heroes[id] ? heroes[id].koName : id)).join(", ") || "없음";
+              const outcomeText = row.outcome === "win" ? "승리/효과적" : "패배/비추천";
+              return `
+                <div class="pro-row">
+                  <div>
+                    <div><strong>[${compLabelMap[row.comp] || row.comp} · ${mapLabelMap[row.mapType] || "전체"} · ${outcomeText}]</strong> ${row.note || row.situation || "전략 기록"}</div>
+                    <div class="pro-row-meta">아군: ${aNames} | 적군: ${eNames}</div>
+                  </div>
+                  <button class="btn btn-danger" style="padding:4px 8px;font-size:11px;" onclick="deleteStrategy(${row.id})">삭제</button>
+                </div>
+              `;
+            })
+            .join("")
+        : "";
+
+      const chipsEl = document.getElementById("heroChips");
+      chipsEl.innerHTML = "";
+      Object.entries(heroes)
+        .sort((a, b) => a[1].koName.localeCompare(b[1].koName, "ko"))
+        .forEach(([id, info]) => {
+          const btn = document.createElement("button");
+          btn.className = "hero-chip";
+          btn.onclick = () => toggleHeroInTeam(id);
+          btn.innerHTML = `<strong>${info.koName}</strong><span class="role-tag">${roleLabelMap[info.role]}</span>`;
+          chipsEl.appendChild(btn);
+        });
+
+      ["tank", "dps", "support"].forEach((role) => {
+        const targetId = role === "tank" ? "roleTank" : role === "dps" ? "roleDps" : "roleSupport";
+        document.getElementById(targetId).innerHTML = (rec.topByRole[role] || [])
+          .map(
+            (item) => `
+            <div class="role-item">
+              <div class="role-item-left">
+                <div class="name">${item.name}</div>
+                <div class="reason">${item.reason}</div>
+              </div>
+              <div class="role-item-score">${item.score}점</div>
+            </div>
+          `
+          )
+          .join("");
+      });
+    }
+
+    fetch("/api/state").then((r) => r.json()).then(render).catch(() => {});
+
+    const es = new EventSource("/events");
+    es.onmessage = (event) => {
+      try {
+        render(JSON.parse(event.data));
+      } catch (e) {}
+    };
+  </script>
+</body>
+</html>
