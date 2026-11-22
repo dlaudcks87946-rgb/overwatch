@@ -207,6 +207,7 @@ let currentState = {
   allies: [],
   enemies: [],
   myHero: null,
+  nickname: "",
   mapType: "any",
   situation: "",
   updatedAt: new Date().toISOString()
@@ -661,6 +662,7 @@ function getFullPayload() {
     allies: currentState.allies,
     enemies: currentState.enemies,
     myHero: currentState.myHero,
+    nickname: currentState.nickname,
     mapType: currentState.mapType,
     situation: currentState.situation,
     updatedAt: currentState.updatedAt,
@@ -697,6 +699,14 @@ app.get("/events", (req, res) => {
   });
 });
 
+app.post("/api/nickname", (req, res) => {
+  const nick = typeof req.body.nickname === "string" ? req.body.nickname.trim().slice(0, 30) : "";
+  currentState.nickname = nick;
+  currentState.updatedAt = new Date().toISOString();
+  broadcastState();
+  res.json({ ok: true, nickname: currentState.nickname });
+});
+
 app.post("/api/update", (req, res) => {
   const rawAllies = Array.isArray(req.body.allies) ? req.body.allies : [];
   const rawEnemies = Array.isArray(req.body.enemies) ? req.body.enemies : [];
@@ -704,12 +714,11 @@ app.post("/api/update", (req, res) => {
   currentState.allies = rawAllies.map(normalizeHeroKey).filter(Boolean).slice(0, 5);
   currentState.enemies = rawEnemies.map(normalizeHeroKey).filter(Boolean).slice(0, 5);
 
-  if (req.body.myHero !== undefined) {
-    currentState.myHero = normalizeHeroKey(req.body.myHero);
-  } else if (!currentState.myHero && currentState.allies.length > 0) {
-    currentState.myHero = currentState.allies[0];
-  } else if (currentState.myHero && currentState.allies.length > 0 && !currentState.allies.includes(currentState.myHero)) {
-    currentState.myHero = currentState.allies[0];
+  if (req.body.myHero !== undefined && req.body.myHero !== null) {
+    const parsedMyHero = normalizeHeroKey(req.body.myHero);
+    if (parsedMyHero) {
+      currentState.myHero = parsedMyHero;
+    }
   }
 
   if (typeof req.body.mapType === "string") currentState.mapType = req.body.mapType;
@@ -828,6 +837,7 @@ app.post("/api/reset", (req, res) => {
     allies: [],
     enemies: [],
     myHero: null,
+    nickname: currentState.nickname,
     mapType: "any",
     situation: "",
     updatedAt: new Date().toISOString()
