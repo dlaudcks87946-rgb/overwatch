@@ -32,27 +32,26 @@ STATE_URL = f"{SERVER_BASE_URL}/api/state"
 HEROES_DIR = "heroes_db"
 DEBUG_DIR = "debug_crops"
 SLOTS_FILE = "slots.json"
-MATCH_THRESHOLD = 0.52
-SCORE_MARGIN = 0.005
+MATCH_THRESHOLD = 0.55
+SCORE_MARGIN = 0.01
 LOOP_INTERVAL = 0.02
 
-# 4K (3840x2160) 빠른 대전 / 경쟁전 점수판 영웅 초상화 정확한 좌표
+# 4K (3840x2160) 사용자 화면 기준 정밀 초상화 좌표
 DEFAULT_SLOTS = [
-    # 아군 1~5번 슬롯 (파란색 팀 5줄)
-    {"x": 1164, "y": 377, "w": 114, "h": 114},
-    {"x": 1164, "y": 510, "w": 114, "h": 114},
-    {"x": 1164, "y": 641, "w": 114, "h": 114},
-    {"x": 1164, "y": 774, "w": 114, "h": 114},
-    {"x": 1164, "y": 907, "w": 114, "h": 114},
-    # 적군 1~5번 슬롯 (빨간색 팀 5줄)
-    {"x": 1164, "y": 1208, "w": 114, "h": 114},
-    {"x": 1164, "y": 1335, "w": 114, "h": 114},
-    {"x": 1164, "y": 1466, "w": 114, "h": 114},
-    {"x": 1164, "y": 1598, "w": 114, "h": 114},
-    {"x": 1164, "y": 1729, "w": 114, "h": 114},
+    # 아군 1~5번 슬롯
+    {"x": 594, "y": 377, "w": 126, "h": 126},
+    {"x": 594, "y": 508, "w": 126, "h": 126},
+    {"x": 594, "y": 639, "w": 126, "h": 126},
+    {"x": 594, "y": 771, "w": 126, "h": 126},
+    {"x": 594, "y": 902, "w": 126, "h": 126},
+    # 적군 1~5번 슬롯
+    {"x": 594, "y": 1187, "w": 126, "h": 126},
+    {"x": 594, "y": 1318, "w": 126, "h": 126},
+    {"x": 594, "y": 1449, "w": 126, "h": 126},
+    {"x": 594, "y": 1581, "w": 126, "h": 126},
+    {"x": 594, "y": 1712, "w": 126, "h": 126},
 ]
 
-clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(4, 4))
 user32 = ctypes.windll.user32
 _cached_nickname = ""
 
@@ -118,24 +117,8 @@ def pick_4k_monitor(sct):
     return fallback_idx, sct.monitors[fallback_idx]
 
 
-def preprocess_portrait(gray_img, dx=0, dy=0, pad_ratio=0.14):
-    h, w = gray_img.shape[:2]
-    if h < 16 or w < 16:
-        return None
-    cy1 = max(0, int(h * pad_ratio) + dy)
-    cy2 = min(h, int(h * (1.0 - pad_ratio)) + dy)
-    cx1 = max(0, int(w * pad_ratio) + dx)
-    cx2 = min(w, int(w * (1.0 - pad_ratio)) + dx)
-    if cy2 <= cy1 or cx2 <= cx1:
-        return None
-    core = gray_img[cy1:cy2, cx1:cx2]
-    if core.size == 0 or core.std() < 12.0:
-        return None
-    norm = clahe.apply(core)
-    return cv2.resize(norm, (64, 64), interpolation=cv2.INTER_AREA)
-
-
-def load_templates(folder=HEROES_DIR):
+def load_templates(folder=HEROES_DIR, target_size=(126, 126)):
+    """54개 영웅 초상화 템플릿을 타겟 크기로 정밀 로드"""
     os.makedirs(folder, exist_ok=True)
     templates = {}
     for fname in os.listdir(folder):
@@ -146,59 +129,43 @@ def load_templates(folder=HEROES_DIR):
             hero_id = os.path.splitext(fname)[0].lower()
             file_path = os.path.join(folder, fname)
             img = imread_unicode(file_path, cv2.IMREAD_GRAYSCALE)
-            if img is not None:
-                proc = preprocess_portrait(img, pad_ratio=0.14)
-                if proc is not None:
-                    templates[hero_id] = proc
+            if img is not None and img.size > 0:
+                templates[hero_id] = cv2.resize(img, target_size)
     return templates
 
 
-def score_against_templates(target, templates):
+def match_slot_fast(search_region_gray, templates, threshold=MATCH_THRESHOLD, margin=SCORE_MARGIN):
+    """
+    슬롯 주변 영역(+-15px)에서 각 영웅 템플릿과의 최고 유사도 계산
+    """
+    if search_region_gray is None or search_region_gray.size == 0 or not templates:
+        return None, None, 0.0
+
+    if search_region_gray.std() < 10.0:
+        return None, None, 0.0
+
     best_hero = None
     best_score = -1.0
     second_score = -1.0
 
     for hero_id, tpl in templates.items():
-        score = float(cv2.matchTemplate(target, tpl, cv2.TM_CCOEFF_NORMED)[0][0])
-        if score > best_score:
+        if tpl.shape[0] > search_region_gray.shape[0] or tpl.shape[1] > search_region_gray.shape[1]:
+            continue
+        res = cv2.matchTemplate(search_region_gray, tpl, cv2.TM_CCOEFF_NORMED)
+        min_v, max_v, _, _ = cv2.minMaxLoc(res)
+        sc = float(max_v)
+        if sc > best_score:
             second_score = best_score
-            best_score = score
+            best_score = sc
             best_hero = hero_id
-        elif score > second_score:
-            second_score = score
+        elif sc > second_score:
+            second_score = sc
 
-    return best_hero, best_score, second_score
+    top_cand = best_hero
+    top_sc = round(best_score, 3)
 
-
-def match_single_slot(slot_search_gray, templates, slot_w, slot_h, threshold=MATCH_THRESHOLD, margin=SCORE_MARGIN):
-    if slot_search_gray is None or slot_search_gray.size == 0 or not templates:
-        return None, None, 0.0
-
-    sh, sw = slot_search_gray.shape[:2]
-    step = 5
-    max_dy = max(0, sh - slot_h)
-    max_dx = max(0, sw - slot_w)
-
-    overall_best_hero = None
-    overall_best_score = -1.0
-    overall_second_score = -1.0
-
-    for y0 in range(0, max_dy + 1, step):
-        for x0 in range(0, max_dx + 1, step):
-            sub_crop = slot_search_gray[y0:y0 + slot_h, x0:x0 + slot_w]
-            target = preprocess_portrait(sub_crop, dx=0, dy=0, pad_ratio=0.14)
-            if target is None:
-                continue
-            bh, bs, ss = score_against_templates(target, templates)
-            if bs > overall_best_score:
-                overall_best_score = bs
-                overall_best_hero = bh
-                overall_second_score = ss
-
-    top_cand = overall_best_hero
-    top_sc = round(overall_best_score, 3)
-    if overall_best_score >= threshold and (overall_best_score - overall_second_score) >= margin:
-        return overall_best_hero, top_cand, top_sc
+    if best_score >= threshold and (best_score - second_score) >= margin:
+        return best_hero, top_cand, top_sc
     return None, top_cand, top_sc
 
 
@@ -277,7 +244,7 @@ def run_loop(interval=LOOP_INTERVAL):
     _start_nickname_sync_thread()
     templates = load_templates()
     slots = load_slots()
-    print(f"영웅 템플릿 {len(templates)}개 로드 완료. (임계값 {MATCH_THRESHOLD})")
+    print(f"영웅 템플릿 {len(templates)}개 고속 로드 완료. (인식 기준점수 {MATCH_THRESHOLD})")
 
     remembered_slots = [None] * 10
     last_sent_payload = None
@@ -294,7 +261,7 @@ def run_loop(interval=LOOP_INTERVAL):
 
                 if tab_pressed_now and not was_tab_down:
                     t0 = time.time()
-                    time.sleep(0.14)
+                    time.sleep(0.12)
 
                     nickname = _cached_nickname
                     raw = np.array(sct.grab(monitor))
@@ -307,27 +274,26 @@ def run_loop(interval=LOOP_INTERVAL):
                     scan_scores = [-1.0] * 10
                     top_cands = [None] * 10
 
+                    pad = 15  # 상하좌우 15px 미세 탐색 마진
                     for idx, s in enumerate(slots):
-                        pad_x, pad_y = 25, 15
-                        x1 = max(0, s["x"] - pad_x)
-                        y1 = max(0, s["y"] - pad_y)
-                        x2 = min(fw, s["x"] + s["w"] + pad_x)
-                        y2 = min(fh, s["y"] + s["h"] + pad_y)
+                        x1 = max(0, s["x"] - pad)
+                        y1 = max(0, s["y"] - pad)
+                        x2 = min(fw, s["x"] + s["w"] + pad)
+                        y2 = min(fh, s["y"] + s["h"] + pad)
 
                         search_crop = gray[y1:y2, x1:x2]
                         exact_crop = gray[s["y"]:s["y"] + s["h"], s["x"]:s["x"] + s["w"]]
                         if exact_crop.size > 0:
                             imwrite_unicode(os.path.join(DEBUG_DIR, f"slot_{idx}.png"), exact_crop)
 
-                        hero, top_cand, top_sc = match_single_slot(search_crop, templates, s["w"], s["h"])
+                        hero, top_cand, top_sc = match_slot_fast(search_crop, templates)
                         scan_heroes[idx] = hero
                         scan_scores[idx] = top_sc
                         top_cands[idx] = top_cand
 
-                    # 팀별 동일 영웅 중복 배정 제거 로직
+                    # 같은 팀 내 중복 배정 방지 로직 (점수가 더 높은 슬롯에 우선 배정)
                     def resolve_team(start_idx, end_idx):
                         team_indices = list(range(start_idx, end_idx))
-                        # 점수 높은 순으로 슬롯 정렬하여 우선 배정
                         sorted_by_score = sorted(team_indices, key=lambda i: scan_scores[i] if scan_heroes[i] else -1.0, reverse=True)
                         resolved = [None] * 10
                         used_heroes = set()
@@ -340,10 +306,8 @@ def run_loop(interval=LOOP_INTERVAL):
                                     used_heroes.add(h)
                                     remembered_slots[i] = h
                                 else:
-                                    # 같은 팀 내 이미 더 높은 점수로 배정된 영웅이면 중복 방지
                                     resolved[i] = None
 
-                        # 미인식 슬롯에 이전 기억(fallback) 적용 (중복 방지 유지)
                         for i in team_indices:
                             if resolved[i] is None:
                                 fb = remembered_slots[i]
@@ -364,7 +328,8 @@ def run_loop(interval=LOOP_INTERVAL):
 
                     scores_debug = []
                     for idx in range(10):
-                        scores_debug.append(f"#{idx}:{scan_slots[idx]}(1위:{top_cands[idx]}:{scan_scores[idx]})")
+                        h = scan_slots[idx]
+                        scores_debug.append(f"#{idx}:{h if h else 'None'}({top_cands[idx]}:{scan_scores[idx]})")
 
                     elapsed = round(time.time() - t0, 2)
                     print(f"[Tab 1회 스캔 ({elapsed}s)] {', '.join(scores_debug)}")
@@ -386,9 +351,9 @@ def run_loop(interval=LOOP_INTERVAL):
                     elif current_payload != last_sent_payload:
                         if post_update(allies, enemies, detected_my_hero):
                             last_sent_payload = current_payload
-                            print(f"[갱신] 아군: {allies} | 적군: {enemies} | 내 영웅: {detected_my_hero or '기존 유지'}")
+                            print(f"[갱신 전송 완료] 아군: {allies} | 적군: {enemies} | 내 영웅: {detected_my_hero or '기존 유지'}")
                     else:
-                        print(f"[동일 조합] 이전과 같음 -> 아군: {allies} | 적군: {enemies}")
+                        print(f"[동일 조합 유지] 아군: {allies} | 적군: {enemies}")
 
                 was_tab_down = bool(tab_state & 0x8000)
 
