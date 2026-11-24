@@ -12,7 +12,14 @@ const PATCH_DB_FILE = path.join(__dirname, "patch_meta.json");
 const PATCH_URL = "https://overwatch.blizzard.com/ko-kr/news/patch-notes/";
 
 app.use(express.json({ limit: "3mb" }));
-app.use(express.static(path.join(__dirname, "public")));
+app.use((req, res, next) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  next();
+});
+app.use(express.static(path.join(__dirname, "public"), { etag: false, maxAge: 0 }));
+app.use("/heroes", express.static(path.join(__dirname, "heroes_db"), { etag: false, maxAge: 0 }));
 
 const pool = DATABASE_URL
   ? new Pool({
@@ -207,7 +214,6 @@ let currentState = {
   allies: [],
   enemies: [],
   myHero: null,
-  nickname: "",
   mapType: "any",
   situation: "",
   updatedAt: new Date().toISOString()
@@ -261,16 +267,6 @@ function detectMapType(line) {
   return "any";
 }
 
-function getTeamCompStyle(heroIds) {
-  const counts = { dive: 0, brawl: 0, poke: 0 };
-  for (const id of heroIds) {
-    const h = HEROES[id];
-    if (h && counts[h.comp] !== undefined) counts[h.comp] += 1;
-  }
-  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  return sorted[0][1] > 0 ? sorted[0][0] : "brawl";
-}
-
 function detectComp(line, allies) {
   if (line.includes("돌진") || line.includes("다이브")) return "dive";
   if (line.includes("포킹") || line.includes("저격")) return "poke";
@@ -318,6 +314,16 @@ function parseBulkTournamentText(rawText) {
     }
   }
   return parsedRecords;
+}
+
+function getTeamCompStyle(heroIds) {
+  const counts = { dive: 0, brawl: 0, poke: 0 };
+  for (const id of heroIds) {
+    const h = HEROES[id];
+    if (h && counts[h.comp] !== undefined) counts[h.comp] += 1;
+  }
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  return sorted[0][1] > 0 ? sorted[0][0] : "brawl";
 }
 
 function parsePatchNotesText(plainText, title = "수동/자동 패치 분석") {
@@ -616,34 +622,18 @@ function buildRecommendations(state) {
   const myHeroInfo = myHeroId ? { id: myHeroId, ...HEROES[myHeroId], name: HEROES[myHeroId].koName } : null;
   const preferredRole = myHeroInfo ? myHeroInfo.role : null;
 
-  const allRoleCandidates = Object.keys(HEROES)
+  const swapRecommendations = Object.keys(HEROES)
+    .filter((id) => id !== myHeroId)
     .filter((id) => !preferredRole || HEROES[id].role === preferredRole)
     .map((id) => scoreCandidate(id, allies, enemies, preferredRole, state.mapType, state.situation))
     .filter(Boolean)
-    .sort((a, b) => b.score - a.score);
-
-  const myCurrentScored = myHeroId
-    ? allRoleCandidates.find((c) => c.id === myHeroId) || null
-    : null;
-
-  const swapRecommendations = allRoleCandidates
-    .filter((c) => c.id !== myHeroId)
-    .filter((c) => !myCurrentScored || c.score >= myCurrentScored.score - 3)
+    .sort((a, b) => b.score - a.score)
     .slice(0, 3);
-
-  if (myCurrentScored && (swapRecommendations.length === 0 || myCurrentScored.score >= swapRecommendations[0].score)) {
-    swapRecommendations.unshift({
-      ...myCurrentScored,
-      name: `${myCurrentScored.name} (현재 픽 유지)`,
-      reason: `현재 조합·상성 기준 최적 픽 · ${myCurrentScored.reason}`
-    });
-    swapRecommendations.splice(3);
-  }
 
   const topByRole = { tank: [], dps: [], support: [] };
   for (const role of ["tank", "dps", "support"]) {
     topByRole[role] = Object.keys(HEROES)
-      .filter((id) => HEROES[id].role === role)
+      .filter((id) => HEROES[id].role === role && id !== myHeroId)
       .map((id) => scoreCandidate(id, allies, enemies, role, state.mapType, state.situation))
       .filter(Boolean)
       .sort((a, b) => b.score - a.score)
@@ -662,7 +652,6 @@ function getFullPayload() {
     allies: currentState.allies,
     enemies: currentState.enemies,
     myHero: currentState.myHero,
-    nickname: currentState.nickname,
     mapType: currentState.mapType,
     situation: currentState.situation,
     updatedAt: currentState.updatedAt,
@@ -699,26 +688,19 @@ app.get("/events", (req, res) => {
   });
 });
 
-app.post("/api/nickname", (req, res) => {
-  const nick = typeof req.body.nickname === "string" ? req.body.nickname.trim().slice(0, 30) : "";
-  currentState.nickname = nick;
-  currentState.updatedAt = new Date().toISOString();
-  broadcastState();
-  res.json({ ok: true, nickname: currentState.nickname });
-});
-
 app.post("/api/update", (req, res) => {
   const rawAllies = Array.isArray(req.body.allies) ? req.body.allies : [];
   const rawEnemies = Array.isArray(req.body.enemies) ? req.body.enemies : [];
 
-  currentState.allies = rawAllies.map(normalizeHeroKey).filter(Boolean).slice(0, 5);
-  currentState.enemies = rawEnemies.map(normalizeHeroKey).filter(Boolean).slice(0, 5);
+  currentState.allies = [...new Set(rawAllies.map(normalizeHeroKey).filter(Boolean))].slice(0, 5);
+  currentState.enemies = [...new Set(rawEnemies.map(normalizeHeroKey).filter(Boolean))].slice(0, 5);
 
-  if (req.body.myHero !== undefined && req.body.myHero !== null) {
-    const parsedMyHero = normalizeHeroKey(req.body.myHero);
-    if (parsedMyHero) {
-      currentState.myHero = parsedMyHero;
-    }
+  if (req.body.myHero !== undefined) {
+    currentState.myHero = normalizeHeroKey(req.body.myHero);
+  } else if (!currentState.myHero && currentState.allies.length > 0) {
+    currentState.myHero = currentState.allies[0];
+  } else if (currentState.myHero && currentState.allies.length > 0 && !currentState.allies.includes(currentState.myHero)) {
+    currentState.myHero = currentState.allies[0];
   }
 
   if (typeof req.body.mapType === "string") currentState.mapType = req.body.mapType;
@@ -837,7 +819,6 @@ app.post("/api/reset", (req, res) => {
     allies: [],
     enemies: [],
     myHero: null,
-    nickname: currentState.nickname,
     mapType: "any",
     situation: "",
     updatedAt: new Date().toISOString()
