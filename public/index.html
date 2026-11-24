@@ -501,6 +501,13 @@
 
     .hero-slot.is-ally {
       border-color: rgba(56, 189, 248, 0.25);
+      cursor: pointer;
+    }
+
+    .hero-slot.is-ally:hover {
+      border-color: var(--ally);
+      background: rgba(56, 189, 248, 0.12);
+      transform: translateY(-2px);
     }
 
     .hero-slot.is-enemy {
@@ -890,7 +897,7 @@
       <div class="card my-hero-card">
         <div class="card-title">
           <span>내 플레이어 영웅</span>
-          <span class="title-accent">자동 닉네임 인식</span>
+          <span class="title-accent" id="myHeroDetectStatus">자동 감지 활성화</span>
         </div>
         
         <div class="my-hero-profile">
@@ -900,12 +907,17 @@
           </div>
           <div>
             <div class="my-hero-name" id="myHeroName">미지정</div>
-            <div class="my-hero-sub" id="myHeroMeta">인게임에서 Tab을 누르거나 아래에서 선택하세요</div>
+            <div class="my-hero-sub" id="myHeroMeta">인게임 Tab 시 자동 감지되거나, 아래 아군 카드를 클릭하세요</div>
           </div>
         </div>
 
+        <div style="display:flex; gap:8px; margin-bottom:10px;">
+          <input class="input-control" id="nicknameInput" type="text" placeholder="오버워치 닉네임 (선택사항 - 입력시 최우선)" style="flex:1;" />
+          <button class="btn btn-secondary" onclick="saveNickname()" style="white-space:nowrap; padding:6px 14px; font-size:12px;">저장</button>
+        </div>
+
         <select class="select-control" id="myHeroSelect" onchange="setMyHero(this.value)">
-          <option value="">-- 내 영웅 직접 선택 --</option>
+          <option value="">-- 내 영웅 직접 선택 (또는 아래 아군 카드 클릭) --</option>
         </select>
 
         <div class="context-grid">
@@ -1088,6 +1100,20 @@
       renderChips();
     }
 
+    async function saveNickname() {
+      const nick = (document.getElementById("nicknameInput").value || "").trim();
+      try {
+        await fetch("/api/nickname", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nickname: nick })
+        });
+        alert(nick ? `'${nick}' 닉네임이 저장되었습니다. 인게임 Tab 시 최우선 매칭됩니다.` : "닉네임이 초기화되었습니다.");
+      } catch (e) {
+        alert("닉네임 저장 실패: " + e.message);
+      }
+    }
+
     async function setMyHero(heroId) {
       await fetch("/api/my-hero", {
         method: "POST",
@@ -1265,6 +1291,11 @@
       selectEl.value = data.myHero || "";
       document.getElementById("mapTypeSelect").value = data.mapType || "any";
 
+      const nickInput = document.getElementById("nicknameInput");
+      if (nickInput && data.nickname !== undefined && document.activeElement !== nickInput) {
+        nickInput.value = data.nickname || "";
+      }
+
       // My Hero Profile Card
       const myHeroAvatarImg = document.getElementById("myHeroAvatar");
       const myHeroAvatarTxt = document.getElementById("myHeroAvatarText");
@@ -1328,8 +1359,8 @@
           const h = heroes[id];
           const isMe = id === data.myHero;
           allyHtml += `
-            <div class="hero-slot is-ally ${isMe ? "is-me" : ""}">
-              ${isMe ? '<span class="me-indicator">ME</span>' : ''}
+            <div class="hero-slot is-ally ${isMe ? "is-me" : ""}" onclick="setMyHero('${id}')" title="클릭하여 내 영웅으로 지정">
+              ${isMe ? '<span class="me-indicator">👑 내 영웅</span>' : '<span style="font-size:10px;color:var(--text-dim);">클릭시 선택</span>'}
               <img class="slot-avatar" src="/heroes/${id}.png" onerror="this.src=''" />
               <div class="slot-name">${h.koName}</div>
               <div class="slot-role-tag">${roleLabelMap[h.role]}</div>

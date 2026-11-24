@@ -169,6 +169,55 @@ def match_slot_fast(search_region_gray, templates, threshold=MATCH_THRESHOLD, ma
     return None, top_cand, top_sc
 
 
+def detect_my_hero_by_highlight(bgr_img, slots, scan_slots):
+    """
+    오버워치 2 시스템 특성: 점수판에서 본인(내 행)은 다른 4명의 아군과 달리
+    청록색(Cyan/Light Blue) 하이라이트로 빛남.
+    아군 5줄의 배경 밝기 및 Cyan 채도를 분석하여 '내 영웅'을 자동 검출!
+    """
+    fh, fw = bgr_img.shape[:2]
+    brightness_scores = []
+
+    for idx in range(min(5, len(slots))):
+        s = slots[idx]
+        hero = scan_slots[idx]
+        if not hero:
+            brightness_scores.append(-1.0)
+            continue
+
+        x1 = min(fw - 1, s["x"] + s["w"] + 50)
+        x2 = min(fw, x1 + 350)
+        y1 = max(0, s["y"] + 20)
+        y2 = min(fh, s["y"] + s["h"] - 20)
+
+        if x2 <= x1 or y2 <= y1:
+            brightness_scores.append(-1.0)
+            continue
+
+        patch = bgr_img[y1:y2, x1:x2]
+        b = float(patch[:, :, 0].mean())
+        g = float(patch[:, :, 1].mean())
+        # Cyan 하이라이트 점수: (B + G) / 2
+        score = (b + g) / 2.0
+        brightness_scores.append(score)
+
+    if not brightness_scores or max(brightness_scores) < 0:
+        return None
+
+    max_score = max(brightness_scores)
+    best_idx = brightness_scores.index(max_score)
+
+    other_scores = [s for i, s in enumerate(brightness_scores) if i != best_idx and s > 0]
+    if other_scores:
+        avg_other = sum(other_scores) / len(other_scores)
+        diff = max_score - avg_other
+        # 하이라이트 행이 다른 행들보다 15 이상 더 밝거나 절대 밝기 100 이상일 때 확정
+        if diff >= 15.0 or max_score >= 95.0:
+            return scan_slots[best_idx]
+
+    return scan_slots[best_idx] if scan_slots[best_idx] else None
+
+
 def read_ocr_text(crop_gray):
     if _ocr_engine is None or crop_gray is None or crop_gray.size == 0:
         return ""
@@ -261,7 +310,7 @@ def run_loop(interval=LOOP_INTERVAL):
 
                 if tab_pressed_now and not was_tab_down:
                     t0 = time.time()
-                    time.sleep(0.12)
+                    time.sleep(0.06)
 
                     nickname = _cached_nickname
                     raw = np.array(sct.grab(monitor))
@@ -336,9 +385,16 @@ def run_loop(interval=LOOP_INTERVAL):
 
                     allies = [h for h in scan_slots[:5] if h]
                     enemies = [h for h in scan_slots[5:10] if h]
+
+                    # 1순위: 닉네임 OCR 매칭 (등록된 닉네임이 있을 경우)
                     detected_my_hero = detect_my_hero_by_nickname(gray, slots, scan_slots, nickname)
                     if detected_my_hero:
-                        print(f"[닉네임 매칭] '{nickname}' -> 내 영웅: {detected_my_hero}")
+                        print(f"[내 영웅 감지 (닉네임)] '{nickname}' -> {detected_my_hero}")
+                    else:
+                        # 2순위: 점수판 Cyan 하이라이트(밝은 배경) 자동 감지
+                        detected_my_hero = detect_my_hero_by_highlight(bgr, slots, scan_slots)
+                        if detected_my_hero:
+                            print(f"[내 영웅 자동 감지 (점수판 하이라이트)] -> {detected_my_hero}")
 
                     current_payload = (tuple(allies), tuple(enemies), detected_my_hero)
 

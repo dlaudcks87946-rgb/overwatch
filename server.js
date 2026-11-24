@@ -214,6 +214,7 @@ let currentState = {
   allies: [],
   enemies: [],
   myHero: null,
+  nickname: null,
   mapType: "any",
   situation: "",
   updatedAt: new Date().toISOString()
@@ -716,6 +717,14 @@ app.post("/api/my-hero", (req, res) => {
   currentState.updatedAt = new Date().toISOString();
   broadcastState();
   res.json({ ok: true, myHero: currentState.myHero });
+});
+
+app.post("/api/nickname", (req, res) => {
+  const nick = typeof req.body.nickname === "string" ? req.body.nickname.trim() : "";
+  currentState.nickname = nick || null;
+  currentState.updatedAt = new Date().toISOString();
+  broadcastState();
+  res.json({ ok: true, nickname: currentState.nickname });
 });
 
 app.post("/api/context", (req, res) => {
