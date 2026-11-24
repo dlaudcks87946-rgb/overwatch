@@ -36,24 +36,50 @@ MATCH_THRESHOLD = 0.52
 SCORE_MARGIN = 0.005
 LOOP_INTERVAL = 0.02
 
+# 4K (3840x2160) 빠른 대전 / 경쟁전 점수판 영웅 초상화 정확한 좌표
 DEFAULT_SLOTS = [
-    # 아군 1~5번 슬롯 (오버워치 2 빠른 대전/경쟁전 상단 5줄 영웅 초상화)
-    {"x": 1072, "y": 377, "w": 126, "h": 126},
-    {"x": 1072, "y": 508, "w": 126, "h": 126},
-    {"x": 1072, "y": 639, "w": 126, "h": 126},
-    {"x": 1072, "y": 771, "w": 126, "h": 126},
-    {"x": 1072, "y": 902, "w": 126, "h": 126},
-    # 적군 1~5번 슬롯 (오버워치 2 빠른 대전/경쟁전 하단 5줄 영웅 초상화)
-    {"x": 1072, "y": 1187, "w": 126, "h": 126},
-    {"x": 1072, "y": 1318, "w": 126, "h": 126},
-    {"x": 1072, "y": 1449, "w": 126, "h": 126},
-    {"x": 1072, "y": 1581, "w": 126, "h": 126},
-    {"x": 1072, "y": 1712, "w": 126, "h": 126},
+    # 아군 1~5번 슬롯 (파란색 팀 5줄)
+    {"x": 1164, "y": 377, "w": 114, "h": 114},
+    {"x": 1164, "y": 510, "w": 114, "h": 114},
+    {"x": 1164, "y": 641, "w": 114, "h": 114},
+    {"x": 1164, "y": 774, "w": 114, "h": 114},
+    {"x": 1164, "y": 907, "w": 114, "h": 114},
+    # 적군 1~5번 슬롯 (빨간색 팀 5줄)
+    {"x": 1164, "y": 1208, "w": 114, "h": 114},
+    {"x": 1164, "y": 1335, "w": 114, "h": 114},
+    {"x": 1164, "y": 1466, "w": 114, "h": 114},
+    {"x": 1164, "y": 1598, "w": 114, "h": 114},
+    {"x": 1164, "y": 1729, "w": 114, "h": 114},
 ]
 
 clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(4, 4))
 user32 = ctypes.windll.user32
 _cached_nickname = ""
+
+
+def imread_unicode(path, flags=cv2.IMREAD_UNCHANGED):
+    """한글 경로에서도 안전하게 이미지를 로드하는 함수"""
+    try:
+        with open(path, "rb") as f:
+            bytes_data = bytearray(f.read())
+            numpy_array = np.asarray(bytes_data, dtype=np.uint8)
+            return cv2.imdecode(numpy_array, flags)
+    except Exception:
+        return None
+
+
+def imwrite_unicode(path, img):
+    """한글 경로에서도 안전하게 이미지를 저장하는 함수"""
+    try:
+        ext = os.path.splitext(path)[1]
+        ret, buf = cv2.imencode(ext, img)
+        if ret:
+            with open(path, "wb") as f:
+                f.write(buf)
+            return True
+    except Exception:
+        pass
+    return False
 
 
 def _start_nickname_sync_thread():
@@ -118,7 +144,8 @@ def load_templates(folder=HEROES_DIR):
             continue
         if lower_name.endswith((".png", ".jpg", ".jpeg", ".webp")):
             hero_id = os.path.splitext(fname)[0].lower()
-            img = cv2.imread(os.path.join(folder, fname), cv2.IMREAD_GRAYSCALE)
+            file_path = os.path.join(folder, fname)
+            img = imread_unicode(file_path, cv2.IMREAD_GRAYSCALE)
             if img is not None:
                 proc = preprocess_portrait(img, pad_ratio=0.14)
                 if proc is not None:
@@ -148,7 +175,7 @@ def match_single_slot(slot_search_gray, templates, slot_w, slot_h, threshold=MAT
         return None, None, 0.0
 
     sh, sw = slot_search_gray.shape[:2]
-    step = 6
+    step = 5
     max_dy = max(0, sh - slot_h)
     max_dx = max(0, sw - slot_w)
 
@@ -271,7 +298,8 @@ def run_loop(interval=LOOP_INTERVAL):
 
                     nickname = _cached_nickname
                     raw = np.array(sct.grab(monitor))
-                    cv2.imwrite(os.path.join(DEBUG_DIR, "last_tab_full.png"), cv2.cvtColor(raw, cv2.COLOR_BGRA2BGR))
+                    bgr = cv2.cvtColor(raw, cv2.COLOR_BGRA2BGR)
+                    imwrite_unicode(os.path.join(DEBUG_DIR, "last_tab_full.png"), bgr)
                     gray = cv2.cvtColor(raw, cv2.COLOR_BGRA2GRAY)
                     fh, fw = gray.shape[:2]
 
@@ -280,7 +308,7 @@ def run_loop(interval=LOOP_INTERVAL):
                     top_cands = [None] * 10
 
                     for idx, s in enumerate(slots):
-                        pad_x, pad_y = 35, 20
+                        pad_x, pad_y = 25, 15
                         x1 = max(0, s["x"] - pad_x)
                         y1 = max(0, s["y"] - pad_y)
                         x2 = min(fw, s["x"] + s["w"] + pad_x)
@@ -289,7 +317,7 @@ def run_loop(interval=LOOP_INTERVAL):
                         search_crop = gray[y1:y2, x1:x2]
                         exact_crop = gray[s["y"]:s["y"] + s["h"], s["x"]:s["x"] + s["w"]]
                         if exact_crop.size > 0:
-                            cv2.imwrite(os.path.join(DEBUG_DIR, f"slot_{idx}.png"), exact_crop)
+                            imwrite_unicode(os.path.join(DEBUG_DIR, f"slot_{idx}.png"), exact_crop)
 
                         hero, top_cand, top_sc = match_single_slot(search_crop, templates, s["w"], s["h"])
                         scan_heroes[idx] = hero
@@ -350,7 +378,11 @@ def run_loop(interval=LOOP_INTERVAL):
                     current_payload = (tuple(allies), tuple(enemies), detected_my_hero)
 
                     if not (allies or enemies or detected_my_hero):
-                        print("[인식 실패] 10개 슬롯 모두 영웅 미인식 (1위 점수와 slot_0~9.png 크롭 확인 필요)")
+                        max_sc = max(scan_scores)
+                        if max_sc < 0.45:
+                            print(f"[대기실 상태 / 미선택] 최고 매칭점수 {max_sc} (게임 시작 전 물음표 '?' 상태이거나 영웅 미선택)")
+                        else:
+                            print(f"[인식 대기] 최고 매칭점수 {max_sc} (임계값 {MATCH_THRESHOLD} 미만)")
                     elif current_payload != last_sent_payload:
                         if post_update(allies, enemies, detected_my_hero):
                             last_sent_payload = current_payload
