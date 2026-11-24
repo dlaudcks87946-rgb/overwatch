@@ -38,17 +38,17 @@ LOOP_INTERVAL = 0.02
 
 DEFAULT_SLOTS = [
     # 아군 1~5번 슬롯 (오버워치 2 빠른 대전/경쟁전 상단 5줄 영웅 초상화)
-    {"x": 1162, "y": 390, "w": 126, "h": 126},
-    {"x": 1162, "y": 521, "w": 126, "h": 126},
-    {"x": 1162, "y": 652, "w": 126, "h": 126},
-    {"x": 1162, "y": 784, "w": 126, "h": 126},
-    {"x": 1162, "y": 915, "w": 126, "h": 126},
+    {"x": 1072, "y": 377, "w": 126, "h": 126},
+    {"x": 1072, "y": 508, "w": 126, "h": 126},
+    {"x": 1072, "y": 639, "w": 126, "h": 126},
+    {"x": 1072, "y": 771, "w": 126, "h": 126},
+    {"x": 1072, "y": 902, "w": 126, "h": 126},
     # 적군 1~5번 슬롯 (오버워치 2 빠른 대전/경쟁전 하단 5줄 영웅 초상화)
-    {"x": 1162, "y": 1200, "w": 126, "h": 126},
-    {"x": 1162, "y": 1331, "w": 126, "h": 126},
-    {"x": 1162, "y": 1462, "w": 126, "h": 126},
-    {"x": 1162, "y": 1594, "w": 126, "h": 126},
-    {"x": 1162, "y": 1725, "w": 126, "h": 126},
+    {"x": 1072, "y": 1187, "w": 126, "h": 126},
+    {"x": 1072, "y": 1318, "w": 126, "h": 126},
+    {"x": 1072, "y": 1449, "w": 126, "h": 126},
+    {"x": 1072, "y": 1581, "w": 126, "h": 126},
+    {"x": 1072, "y": 1712, "w": 126, "h": 126},
 ]
 
 clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(4, 4))
@@ -271,6 +271,7 @@ def run_loop(interval=LOOP_INTERVAL):
 
                     nickname = _cached_nickname
                     raw = np.array(sct.grab(monitor))
+                    cv2.imwrite(os.path.join(DEBUG_DIR, "last_tab_full.png"), cv2.cvtColor(raw, cv2.COLOR_BGRA2BGR))
                     gray = cv2.cvtColor(raw, cv2.COLOR_BGRA2GRAY)
                     fh, fw = gray.shape[:2]
 
@@ -279,7 +280,7 @@ def run_loop(interval=LOOP_INTERVAL):
                     top_cands = [None] * 10
 
                     for idx, s in enumerate(slots):
-                        pad_x, pad_y = 10, 20
+                        pad_x, pad_y = 35, 20
                         x1 = max(0, s["x"] - pad_x)
                         y1 = max(0, s["y"] - pad_y)
                         x2 = min(fw, s["x"] + s["w"] + pad_x)
