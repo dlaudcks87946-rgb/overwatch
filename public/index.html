@@ -3,234 +3,1446 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OW2 실시간 조합 분석 & 추천</title>
+  <title>오버워치 2 실시간 조합 분석 & 영웅 추천 | OW2 Advisor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; }
-    body {
+    :root {
+      --bg: #090c13;
+      --bg-alt: #0d121c;
+      --card-bg: rgba(18, 25, 40, 0.75);
+      --card-bg-solid: #121928;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --card-border-hover: rgba(255, 156, 26, 0.4);
+      --text: #f1f5f9;
+      --text-muted: #8492a6;
+      --text-dim: #505c6e;
+      --accent: #ff9c1a;
+      --accent-glow: rgba(255, 156, 26, 0.35);
+      --ally: #38bdf8;
+      --ally-glow: rgba(56, 189, 248, 0.35);
+      --ally-bg: rgba(56, 189, 248, 0.12);
+      --enemy: #fb7185;
+      --enemy-glow: rgba(251, 113, 133, 0.35);
+      --enemy-bg: rgba(251, 113, 133, 0.12);
+      --success: #34d399;
+      --gold: #fbbf24;
+      --silver: #cbd5e1;
+      --bronze: #d97706;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
       margin: 0;
-      font-family: "Segoe UI", "Malgun Gothic", sans-serif;
-      background: #0d121a;
-      color: #eef3f9;
-      padding: 18px;
+      padding: 0;
     }
-    .wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 14px; }
-    .card {
-      background: #151e2c;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      padding: 16px;
+
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(255, 156, 26, 0.15), transparent),
+        radial-gradient(ellipse 60% 40% at 85% 60%, rgba(56, 189, 248, 0.08), transparent),
+        radial-gradient(ellipse 60% 40% at 15% 90%, rgba(251, 113, 133, 0.06), transparent);
+      color: var(--text);
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+      min-height: 100vh;
+      padding: 24px 20px;
+      line-height: 1.5;
     }
-    h1, h2 { margin: 0 0 10px 0; font-size: 16px; }
-    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-    input, select, button {
-      padding: 8px 12px;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      background: #0d121a;
-      color: #fff;
-      font-size: 13px;
+
+    .container {
+      max-width: 1440px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
     }
-    button {
-      background: #ff9c1a;
-      color: #0d121a;
-      border: none;
-      font-weight: 700;
-      cursor: pointer;
+
+    /* TOPBAR */
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 16px 24px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
     }
-    button.secondary {
-      background: #243248;
-      color: #eef3f9;
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
     }
-    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
-    .rec-item {
-      background: #0d121a;
-      border: 1px solid rgba(255, 255, 255, 0.08);
+
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #ff9c1a, #ff5e1a);
       border-radius: 10px;
-      padding: 10px 12px;
-      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 16px;
+      color: #090c13;
+      box-shadow: 0 0 16px var(--accent-glow);
     }
-    .rec-top { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 4px; }
-    .muted { color: #9ab0c9; font-size: 12px; }
-    .tag {
-      display: inline-block;
+
+    .brand h1 {
+      font-size: 21px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(90deg, #fff, #cbd5e1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-tag {
+      font-size: 11px;
+      font-weight: 700;
       padding: 3px 8px;
       border-radius: 6px;
-      background: rgba(255, 156, 26, 0.16);
-      color: #ffb84d;
+      background: rgba(255, 156, 26, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(255, 156, 26, 0.3);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.04);
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--card-border);
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 10px var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.2); }
+    }
+
+    /* BUTTONS */
+    .btn {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      border: 1px solid var(--card-border);
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      font-family: inherit;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #ff9c1a, #ff7b00);
+      color: #090c13;
+      border-color: #ff9c1a;
+      box-shadow: 0 4px 16px var(--accent-glow);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #ffad3d, #ff8c1a);
+      box-shadow: 0 6px 20px var(--accent-glow);
+    }
+
+    .btn-danger {
+      color: var(--enemy);
+      border-color: rgba(251, 113, 133, 0.3);
+      background: rgba(251, 113, 133, 0.08);
+    }
+
+    .btn-danger:hover {
+      background: rgba(251, 113, 133, 0.2);
+      border-color: var(--enemy);
+    }
+
+    /* CARD STYLING */
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 22px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s ease;
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #cbd5e1;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card-title .title-accent {
       font-size: 12px;
-      margin: 2px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    /* HERO BANNER SECTION */
+    .hero-banner {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 1080px) {
+      .hero-banner {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* MY HERO CARD */
+    .my-hero-card {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .my-hero-profile {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px;
+      background: linear-gradient(135deg, rgba(255, 156, 26, 0.12), rgba(56, 189, 248, 0.06));
+      border: 1px solid rgba(255, 156, 26, 0.35);
+      border-radius: var(--radius-md);
+      position: relative;
+    }
+
+    .hero-avatar-wrap {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      box-shadow: 0 0 16px var(--accent-glow);
+      overflow: hidden;
+      background: #182234;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hero-avatar {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .avatar-placeholder {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--text-dim);
+    }
+
+    .my-hero-name {
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      color: #fff;
+    }
+
+    .my-hero-sub {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .select-control, .input-control {
+      width: 100%;
+      background: rgba(18, 25, 40, 0.9);
+      color: var(--text);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      outline: none;
+      font-family: inherit;
+      transition: border-color 0.15s ease;
+    }
+
+    .select-control:focus, .input-control:focus {
+      border-color: var(--accent);
+    }
+
+    .context-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    /* TOP 3 SWAP CARDS */
+    .swap-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    @media (max-width: 760px) {
+      .swap-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .swap-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+      position: relative;
+      transition: all 0.25s ease;
+    }
+
+    .swap-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .swap-card.rank-1 {
+      border-color: rgba(255, 156, 26, 0.5);
+      background: linear-gradient(180deg, rgba(255, 156, 26, 0.15), rgba(255, 156, 26, 0.02));
+      box-shadow: 0 0 20px rgba(255, 156, 26, 0.12);
+    }
+
+    .swap-card.rank-2 {
+      border-color: rgba(203, 213, 225, 0.4);
+      background: linear-gradient(180deg, rgba(203, 213, 225, 0.1), rgba(203, 213, 225, 0.02));
+    }
+
+    .swap-card.rank-3 {
+      border-color: rgba(217, 119, 6, 0.35);
+      background: linear-gradient(180deg, rgba(217, 119, 6, 0.1), rgba(217, 119, 6, 0.02));
+    }
+
+    .swap-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .swap-thumb {
+      width: 52px;
+      height: 52px;
+      border-radius: 12px;
+      object-fit: cover;
+      background: #182234;
+      border: 2px solid var(--card-border);
+    }
+
+    .swap-card.rank-1 .swap-thumb { border-color: var(--accent); }
+    .swap-card.rank-2 .swap-thumb { border-color: var(--silver); }
+    .swap-card.rank-3 .swap-thumb { border-color: var(--bronze); }
+
+    .swap-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .swap-card.rank-1 .swap-badge { color: var(--accent); }
+    .swap-card.rank-2 .swap-badge { color: var(--silver); }
+    .swap-card.rank-3 .swap-badge { color: #f59e0b; }
+
+    .swap-name {
+      font-size: 19px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .score-bar-wrap {
+      margin-top: 4px;
+    }
+
+    .score-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .score-value {
+      color: var(--success);
+    }
+
+    .score-track {
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .score-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #10b981, #34d399);
+      border-radius: 4px;
+      transition: width 0.4s ease;
+    }
+
+    .swap-reason {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 8px 10px;
+      border-radius: 8px;
+    }
+
+    /* 5v5 TEAM ROSTERS */
+    .teams-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .teams-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .team-card-ally {
+      border-top: 3px solid var(--ally);
+    }
+
+    .team-card-enemy {
+      border-top: 3px solid var(--enemy);
+    }
+
+    .team-slots-list {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+    }
+
+    @media (max-width: 600px) {
+      .team-slots-list {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .hero-slot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 12px 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      gap: 8px;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .hero-slot.is-ally {
+      border-color: rgba(56, 189, 248, 0.25);
+    }
+
+    .hero-slot.is-enemy {
+      border-color: rgba(251, 113, 133, 0.25);
+    }
+
+    .hero-slot.is-me {
+      border-color: var(--accent);
+      background: rgba(255, 156, 26, 0.1);
+      box-shadow: 0 0 14px var(--accent-glow);
+    }
+
+    .hero-slot.empty-slot {
+      border-style: dashed;
+      opacity: 0.5;
+    }
+
+    .slot-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      object-fit: cover;
+      background: #182234;
+      border: 1px solid var(--card-border);
+    }
+
+    .is-ally .slot-avatar { border-color: rgba(56, 189, 248, 0.4); }
+    .is-enemy .slot-avatar { border-color: rgba(251, 113, 133, 0.4); }
+    .is-me .slot-avatar { border-color: var(--accent); }
+
+    .slot-name {
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+
+    .slot-role-tag {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+    }
+
+    .me-indicator {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      background: var(--accent);
+      color: #090c13;
+      font-size: 10px;
+      font-weight: 900;
+      padding: 2px 6px;
+      border-radius: 6px;
+      box-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    /* ROLE RECOMMENDATIONS */
+    .roles-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 980px) {
+      .roles-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .role-column {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .role-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      transition: all 0.2s ease;
+    }
+
+    .role-item:hover {
+      border-color: rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .role-item-thumb {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      object-fit: cover;
+      background: #182234;
+      flex-shrink: 0;
+      border: 1px solid var(--card-border);
+    }
+
+    .role-item-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .role-item-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .role-item-reason {
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+
+    .role-item-score {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    /* MANUAL PICKER */
+    .picker-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .mode-switch {
+      display: flex;
+      gap: 8px;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid var(--card-border);
+    }
+
+    .mode-btn {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .mode-btn.active-ally {
+      background: var(--ally-bg);
+      color: var(--ally);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .mode-btn.active-enemy {
+      background: var(--enemy-bg);
+      color: var(--enemy);
+      border: 1px solid rgba(251, 113, 133, 0.3);
+    }
+
+    .role-filter-group {
+      display: flex;
+      gap: 6px;
+    }
+
+    .role-filter-btn {
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+
+    .role-filter-btn.active {
+      background: rgba(255, 156, 26, 0.15);
+      color: var(--accent);
+      border-color: rgba(255, 156, 26, 0.4);
+    }
+
+    .hero-chips-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 8px;
+      max-height: 240px;
+      overflow-y: auto;
+      padding-right: 6px;
+    }
+
+    .hero-chip-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 6px 10px;
+      cursor: pointer;
+      color: var(--text);
+      transition: all 0.15s ease;
+      text-align: left;
+    }
+
+    .hero-chip-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--card-border-hover);
+      transform: translateY(-1px);
+    }
+
+    .hero-chip-btn.selected-ally {
+      background: var(--ally-bg);
+      border-color: var(--ally);
+    }
+
+    .hero-chip-btn.selected-enemy {
+      background: var(--enemy-bg);
+      border-color: var(--enemy);
+    }
+
+    .chip-thumb {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      object-fit: cover;
+      background: #182234;
+      flex-shrink: 0;
+    }
+
+    .chip-name {
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .chip-role {
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    /* META & TOURNAMENT */
+    .dual-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 980px) {
+      .dual-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .badge-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .meta-tag {
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .meta-buff {
+      color: var(--success);
+      border-color: rgba(52, 211, 153, 0.35);
+      background: rgba(52, 211, 153, 0.08);
+    }
+
+    .meta-nerf {
+      color: var(--enemy);
+      border-color: rgba(251, 113, 133, 0.35);
+      background: rgba(251, 113, 133, 0.08);
+    }
+
+    .textarea-control {
+      width: 100%;
+      background: rgba(18, 25, 40, 0.9);
+      color: var(--text);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      resize: vertical;
+    }
+
+    .textarea-control:focus {
+      border-color: var(--accent);
+    }
+
+    .pro-form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .pro-list-box {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 220px;
+      overflow-y: auto;
+      margin-top: 10px;
+    }
+
+    .pro-record {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.2);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.3);
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>OW2 실시간 조합 분석 & 추천</h1>
-      <div class="row" style="margin-bottom: 10px;">
-        <label class="muted">내 닉네임:</label>
-        <input id="nicknameInput" type="text" placeholder="게임 내 닉네임 입력" />
-        <button onclick="saveNickname()">닉네임 저장</button>
-        <span id="nicknameStatus" class="muted"></span>
+  <div class="container">
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-logo">OW</div>
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <h1>오버워치 2 전략·조합 어드바이저</h1>
+            <span class="brand-tag">PRO META AI</span>
+          </div>
+        </div>
       </div>
-      <div class="row">
-        <label class="muted">내 영웅 직접 지정:</label>
-        <select id="myHeroSelect" onchange="changeMyHero()">
-          <option value="">선택 안 함</option>
+      <div class="status-group">
+        <div class="status-pill"><span class="live-dot"></span>인게임 탭 실시간 연동</div>
+        <div class="status-pill" id="patchBadge">패치 확인 중</div>
+        <div class="status-pill" id="proCountBadge">대회 0건</div>
+        <div class="status-pill" id="updatedTime">대기 중</div>
+        <button class="btn btn-danger" onclick="resetAll()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          초기화
+        </button>
+      </div>
+    </header>
+
+    <!-- HERO BANNER -->
+    <section class="hero-banner">
+      <!-- MY HERO PROFILE -->
+      <div class="card my-hero-card">
+        <div class="card-title">
+          <span>내 플레이어 영웅</span>
+          <span class="title-accent">자동 닉네임 인식</span>
+        </div>
+        
+        <div class="my-hero-profile">
+          <div class="hero-avatar-wrap">
+            <img id="myHeroAvatar" class="hero-avatar" src="" style="display:none;" />
+            <span id="myHeroAvatarText" class="avatar-placeholder">?</span>
+          </div>
+          <div>
+            <div class="my-hero-name" id="myHeroName">미지정</div>
+            <div class="my-hero-sub" id="myHeroMeta">인게임에서 Tab을 누르거나 아래에서 선택하세요</div>
+          </div>
+        </div>
+
+        <select class="select-control" id="myHeroSelect" onchange="setMyHero(this.value)">
+          <option value="">-- 내 영웅 직접 선택 --</option>
         </select>
-        <span id="currentMyHeroText" class="tag">현재 내 영웅: 미지정</span>
-        <button class="secondary" onclick="resetState()">상태 초기화</button>
-      </div>
-    </div>
 
-    <div class="grid-2">
+        <div class="context-grid">
+          <select class="select-control" id="mapTypeSelect" onchange="updateContext()">
+            <option value="any">전장 유형: 전체</option>
+            <option value="control">쟁탈 (거점)</option>
+            <option value="escort">호위</option>
+            <option value="hybrid">혼합</option>
+            <option value="push">밀기</option>
+            <option value="flashpoint">플래시포인트</option>
+            <option value="clash">격돌</option>
+          </select>
+          <input class="input-control" id="situationInput" type="text" placeholder="상황 (공격, 수비, 고지대 등)" onchange="updateContext()" />
+        </div>
+      </div>
+
+      <!-- TOP 3 SWAP RECOMMENDATIONS -->
       <div class="card">
-        <h2>아군 / 적군 현황</h2>
-        <div style="margin-bottom: 8px;">
-          <div class="muted">아군</div>
-          <div id="alliesList">-</div>
+        <div class="card-title">
+          <span>실시간 최적 교체 픽 TOP 3</span>
+          <span class="title-accent" id="swapScopeLabel">상성 + 패치 메타 + 대회 전술 반영</span>
         </div>
-        <div>
-          <div class="muted">적군</div>
-          <div id="enemiesList">-</div>
+        <div class="swap-grid" id="swapGrid"></div>
+      </div>
+    </section>
+
+    <!-- 5v5 TEAM COMPOSITIONS -->
+    <section class="teams-grid">
+      <!-- ALLIES -->
+      <div class="card team-card-ally">
+        <div class="card-title">
+          <span style="color:var(--ally);">아군 조합 (TEAM ALLY)</span>
+          <span class="title-accent" id="allyCount">0 / 5</span>
         </div>
+        <div class="team-slots-list" id="allySlots"></div>
       </div>
 
+      <!-- ENEMIES -->
+      <div class="card team-card-enemy">
+        <div class="card-title">
+          <span style="color:var(--enemy);">적군 조합 (TEAM ENEMY)</span>
+          <span class="title-accent" id="enemyCount">0 / 5</span>
+        </div>
+        <div class="team-slots-list" id="enemySlots"></div>
+      </div>
+    </section>
+
+    <!-- ROLE-BY-ROLE RECOMMENDATIONS -->
+    <section class="roles-grid">
       <div class="card">
-        <h2>내 역할군 추천</h2>
-        <div id="swapList">데이터 대기 중...</div>
+        <div class="card-title"><span>탱커 추천 TOP 3</span></div>
+        <div class="role-column" id="roleTank"></div>
       </div>
-    </div>
+      <div class="card">
+        <div class="card-title"><span>딜러 추천 TOP 3</span></div>
+        <div class="role-column" id="roleDps"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span>힐러 추천 TOP 3</span></div>
+        <div class="role-column" id="roleSupport"></div>
+      </div>
+    </section>
 
-    <div class="card">
-      <h2>역할군별 TOP 3 추천</h2>
-      <div class="grid-2">
-        <div>
-          <div class="muted" style="margin-bottom:6px;">탱커</div>
-          <div id="topTank">-</div>
+    <!-- MANUAL HERO PICKER -->
+    <section class="card">
+      <div class="picker-toolbar">
+        <div class="card-title" style="margin-bottom:0;">
+          <span>수동 조합 편집기</span>
+          <span class="title-accent">클릭하여 팀에 영웅 추가 / 해제</span>
         </div>
-        <div>
-          <div class="muted" style="margin-bottom:6px;">딜러</div>
-          <div id="topDps">-</div>
-        </div>
-        <div>
-          <div class="muted" style="margin-bottom:6px;">힐러</div>
-          <div id="topSupport">-</div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="role-filter-group">
+            <button class="role-filter-btn active" onclick="filterChips('all', this)">전체</button>
+            <button class="role-filter-btn" onclick="filterChips('tank', this)">탱커</button>
+            <button class="role-filter-btn" onclick="filterChips('dps', this)">딜러</button>
+            <button class="role-filter-btn" onclick="filterChips('support', this)">힐러</button>
+          </div>
+          <div class="mode-switch">
+            <button class="mode-btn active-ally" id="modeAllyBtn" onclick="setPickMode('ally')">아군 추가</button>
+            <button class="mode-btn" id="modeEnemyBtn" onclick="setPickMode('enemy')">적군 추가</button>
+          </div>
         </div>
       </div>
-    </div>
+      <div class="hero-chips-grid" id="heroChips"></div>
+    </section>
+
+    <!-- META & TOURNAMENT SECTION -->
+    <section class="dual-grid">
+      <!-- PATCH NOTES -->
+      <div class="card">
+        <div class="card-title">
+          <span>최신 패치노트 메타</span>
+          <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="syncPatchNow()">패치 지금 동기화</button>
+        </div>
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:10px;" id="patchTitleText">패치 데이터 동기화 확인 중...</div>
+        <div class="badge-wrap" id="patchHeroBadges"></div>
+        <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px;">
+          <textarea class="textarea-control" id="manualPatchText" rows="2" placeholder="패치노트 본문 또는 주요 밸런스 내용을 붙여넣고 분석 버튼을 누르세요."></textarea>
+          <button class="btn btn-primary" onclick="submitManualPatch()">붙여넣은 패치 분석 반영</button>
+        </div>
+      </div>
+
+      <!-- TOURNAMENT STRATEGIES -->
+      <div class="card">
+        <div class="card-title">
+          <span>대회 전략 & 메타 조합 DB</span>
+          <span class="title-accent" id="proSummaryText">0경기 분석됨</span>
+        </div>
+        <div class="badge-wrap" id="proTopHeroes" style="margin-bottom:12px;"></div>
+        
+        <div class="pro-form-row">
+          <select class="select-control" id="proCompSelect">
+            <option value="dive">돌진 조합 (Dive)</option>
+            <option value="brawl">난전 조합 (Brawl)</option>
+            <option value="poke">포킹 조합 (Poke)</option>
+          </select>
+          <select class="select-control" id="proMapSelect">
+            <option value="any">전장: 전체</option>
+            <option value="control">쟁탈</option>
+            <option value="escort">호위</option>
+            <option value="hybrid">혼합</option>
+            <option value="push">밀기</option>
+          </select>
+          <select class="select-control" id="proOutcomeSelect">
+            <option value="win">승리 / 권장</option>
+            <option value="loss">패배 / 비추천</option>
+          </select>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+          <input class="input-control" id="proNoteInput" type="text" placeholder="단건 전술 메모 (예: 윈스턴 상대 라마트라·바스티온 카운터)" />
+          <button class="btn btn-primary" style="flex-shrink:0;" onclick="saveProStrategy()">전술 저장</button>
+        </div>
+
+        <textarea class="textarea-control" id="bulkTournamentText" rows="2" placeholder="대회 세트 기록 일괄 입력 (예: 1세트 호위 윈스턴 트레이서 겐지 vs 오리사 소전 승리)"></textarea>
+        <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:12px;color:var(--text-muted);" id="bulkResultMsg">대회 전술을 등록하면 추천 점수에 자동 가산됩니다.</span>
+          <button class="btn" onclick="submitBulkTournament()">일괄 등록</button>
+        </div>
+        
+        <div class="pro-list-box" id="proList"></div>
+      </div>
+    </section>
   </div>
 
   <script>
-    let heroesMap = {};
-    let nicknameInitialized = false;
+    let latestData = null;
+    let pickMode = "ally";
+    let activeRoleFilter = "all";
 
-    function renderHeroOptions(heroes) {
-      const select = document.getElementById("myHeroSelect");
-      const prevVal = select.value;
-      select.innerHTML = '<option value="">선택 안 함</option>';
-      Object.entries(heroes)
-        .sort((a, b) => a[1].koName.localeCompare(b[1].koName, "ko"))
-        .forEach(([id, info]) => {
-          const opt = document.createElement("option");
-          opt.value = id;
-          opt.textContent = `${info.koName} (${info.compKo})`;
-          select.appendChild(opt);
-        });
-      if (prevVal) select.value = prevVal;
-    }
+    const roleLabelMap = { tank: "탱커", dps: "딜러", support: "힐러" };
+    const compLabelMap = { dive: "돌진", brawl: "난전", poke: "포킹" };
+    const mapLabelMap = {
+      any: "전체",
+      control: "쟁탈",
+      escort: "호위",
+      hybrid: "혼합",
+      push: "밀기",
+      flashpoint: "플래시포인트",
+      clash: "격돌"
+    };
 
-    function renderRecList(targetId, items) {
-      const el = document.getElementById(targetId);
-      if (!items || items.length === 0) {
-        el.innerHTML = '<div class="muted">추천 데이터 없음</div>';
-        return;
-      }
-      el.innerHTML = items
-        .map(
-          (item) => `
-          <div class="rec-item">
-            <div class="rec-top">
-              <span>${item.name}</span>
-              <span>${item.score}점</span>
-            </div>
-            <div class="muted">${item.reason}</div>
-          </div>`
-        )
-        .join("");
-    }
-
-    function applyState(data) {
-      if (data.heroes && Object.keys(heroesMap).length === 0) {
-        heroesMap = data.heroes;
-        renderHeroOptions(heroesMap);
-      }
-
-      const nickInput = document.getElementById("nicknameInput");
-      if (!nicknameInitialized && document.activeElement !== nickInput) {
-        nickInput.value = data.nickname || "";
-        nicknameInitialized = true;
-      }
-      document.getElementById("nicknameStatus").textContent = data.nickname
-        ? `등록된 닉네임: "${data.nickname}"`
-        : "미등록";
-
-      const myHeroSelect = document.getElementById("myHeroSelect");
-      if (data.myHero && myHeroSelect.value !== data.myHero) {
-        myHeroSelect.value = data.myHero;
-      }
-      const myHeroName = data.myHero && heroesMap[data.myHero] ? heroesMap[data.myHero].koName : "미지정";
-      document.getElementById("currentMyHeroText").textContent = `현재 내 영웅: ${myHeroName}`;
-
-      document.getElementById("alliesList").innerHTML =
-        (data.allies && data.allies.length
-          ? data.allies.map((id) => `<span class="tag">${heroesMap[id] ? heroesMap[id].koName : id}</span>`).join("")
-          : '<span class="muted">인식된 아군 없음</span>');
-
-      document.getElementById("enemiesList").innerHTML =
-        (data.enemies && data.enemies.length
-          ? data.enemies.map((id) => `<span class="tag">${heroesMap[id] ? heroesMap[id].koName : id}</span>`).join("")
-          : '<span class="muted">인식된 적군 없음</span>');
-
-      if (data.recommendations) {
-        renderRecList("swapList", data.recommendations.swapRecommendations);
-        renderRecList("topTank", data.recommendations.topByRole.tank);
-        renderRecList("topDps", data.recommendations.topByRole.dps);
-        renderRecList("topSupport", data.recommendations.topByRole.support);
+    function setPickMode(mode) {
+      pickMode = mode;
+      const allyBtn = document.getElementById("modeAllyBtn");
+      const enemyBtn = document.getElementById("modeEnemyBtn");
+      if (mode === "ally") {
+        allyBtn.className = "mode-btn active-ally";
+        enemyBtn.className = "mode-btn";
+      } else {
+        allyBtn.className = "mode-btn";
+        enemyBtn.className = "mode-btn active-enemy";
       }
     }
 
-    async function saveNickname() {
-      const val = document.getElementById("nicknameInput").value.trim();
-      const resp = await fetch("/api/nickname", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nickname: val })
-      });
-      const resJson = await resp.json();
-      if (resJson.ok) {
-        document.getElementById("nicknameStatus").textContent = resJson.nickname
-          ? `저장됨: "${resJson.nickname}"`
-          : "닉네임 삭제됨";
-      }
+    function filterChips(role, btn) {
+      activeRoleFilter = role;
+      document.querySelectorAll(".role-filter-btn").forEach(b => b.classList.remove("active"));
+      if (btn) btn.classList.add("active");
+      renderChips();
     }
 
-    async function changeMyHero() {
-      const val = document.getElementById("myHeroSelect").value;
+    async function setMyHero(heroId) {
       await fetch("/api/my-hero", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ myHero: val || null })
+        body: JSON.stringify({ myHero: heroId || null })
       });
     }
 
-    async function resetState() {
+    async function updateContext() {
+      const mapType = document.getElementById("mapTypeSelect").value;
+      const situation = document.getElementById("situationInput").value;
+      await fetch("/api/context", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mapType, situation })
+      });
+    }
+
+    async function syncPatchNow() {
+      document.getElementById("patchTitleText").textContent = "공식 패치노트 확인 중...";
+      const res = await fetch("/api/patch/sync", { method: "POST" });
+      const out = await res.json();
+      if (!out.ok) {
+        document.getElementById("patchTitleText").textContent = out.message || "패치노트 동기화 실패";
+      }
+    }
+
+    async function submitManualPatch() {
+      const text = document.getElementById("manualPatchText").value;
+      if (!text.trim()) return;
+      const res = await fetch("/api/patch/manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+      });
+      const out = await res.json();
+      if (out.ok) {
+        document.getElementById("manualPatchText").value = "";
+      }
+    }
+
+    async function saveProStrategy() {
+      if (!latestData) return;
+      const comp = document.getElementById("proCompSelect").value;
+      const mapType = document.getElementById("proMapSelect").value;
+      const outcome = document.getElementById("proOutcomeSelect").value;
+      const note = document.getElementById("proNoteInput").value;
+      const situation = document.getElementById("situationInput").value;
+
+      const res = await fetch("/api/strategies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          allies: latestData.allies,
+          enemies: latestData.enemies,
+          comp,
+          mapType,
+          situation,
+          outcome,
+          note
+        })
+      });
+      const out = await res.json();
+      if (out.ok) {
+        document.getElementById("proNoteInput").value = "";
+      }
+    }
+
+    async function submitBulkTournament() {
+      const text = document.getElementById("bulkTournamentText").value;
+      if (!text.trim()) return;
+      const res = await fetch("/api/strategies/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+      });
+      const out = await res.json();
+      if (out.ok) {
+        document.getElementById("bulkTournamentText").value = "";
+        document.getElementById("bulkResultMsg").textContent = `${out.addedCount}건 일괄 등록 완료`;
+      }
+    }
+
+    async function deleteStrategy(id) {
+      await fetch(`/api/strategies/${id}`, { method: "DELETE" });
+    }
+
+    async function resetAll() {
+      if (!confirm("전체 조합 및 선택 상태를 초기화할까요?")) return;
       await fetch("/api/reset", { method: "POST" });
     }
 
-    const evtSource = new EventSource("/events");
-    evtSource.onmessage = (event) => {
+    async function toggleHeroInTeam(heroId) {
+      if (!latestData) return;
+      const allies = [...(latestData.allies || [])];
+      const enemies = [...(latestData.enemies || [])];
+
+      if (pickMode === "ally") {
+        if (allies.includes(heroId)) {
+          allies.splice(allies.indexOf(heroId), 1);
+        } else if (allies.length < 5) {
+          // 중복 방지
+          const enemyIdx = enemies.indexOf(heroId);
+          allies.push(heroId);
+        }
+      } else {
+        if (enemies.includes(heroId)) {
+          enemies.splice(enemies.indexOf(heroId), 1);
+        } else if (enemies.length < 5) {
+          enemies.push(heroId);
+        }
+      }
+
+      await fetch("/api/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ allies, enemies, myHero: latestData.myHero })
+      });
+    }
+
+    function renderChips() {
+      if (!latestData || !latestData.heroes) return;
+      const heroes = latestData.heroes;
+      const allies = latestData.allies || [];
+      const enemies = latestData.enemies || [];
+      const chipsEl = document.getElementById("heroChips");
+      chipsEl.innerHTML = "";
+
+      Object.entries(heroes)
+        .filter(([id, info]) => activeRoleFilter === "all" || info.role === activeRoleFilter)
+        .sort((a, b) => a[1].koName.localeCompare(b[1].koName, "ko"))
+        .forEach(([id, info]) => {
+          const btn = document.createElement("button");
+          const isAlly = allies.includes(id);
+          const isEnemy = enemies.includes(id);
+          let extraClass = isAlly ? "selected-ally" : isEnemy ? "selected-enemy" : "";
+          btn.className = `hero-chip-btn ${extraClass}`;
+          btn.onclick = () => toggleHeroInTeam(id);
+          btn.innerHTML = `
+            <img class="chip-thumb" src="/heroes/${id}.png" onerror="this.style.display='none'" />
+            <div>
+              <div class="chip-name">${info.koName}</div>
+              <div class="chip-role">${roleLabelMap[info.role]}</div>
+            </div>
+          `;
+          chipsEl.appendChild(btn);
+        });
+    }
+
+    function render(data) {
+      latestData = data;
+      const heroes = data.heroes || {};
+      const rec = data.recommendations || { myHero: null, swapRecommendations: [], topByRole: { tank: [], dps: [], support: [] } };
+      const patchMeta = data.patchMeta || { latestPatchTitle: "없음", heroAdjustments: {} };
+      const insights = data.tournamentInsights || { totalMatches: 0, topProHeroes: [], recentPatterns: [] };
+
+      // Top status
+      const t = new Date(data.updatedAt || Date.now());
+      document.getElementById("updatedTime").textContent = `갱신: ${t.toLocaleTimeString()}`;
+      document.getElementById("patchBadge").textContent = `패치: ${patchMeta.latestPatchTitle}`;
+      document.getElementById("proCountBadge").textContent = `대회 DB ${insights.totalMatches}건`;
+
+      // My Hero Select options
+      const selectEl = document.getElementById("myHeroSelect");
+      if (selectEl.options.length <= 1) {
+        Object.entries(heroes)
+          .sort((a, b) => a[1].koName.localeCompare(b[1].koName, "ko"))
+          .forEach(([id, info]) => {
+            const opt = document.createElement("option");
+            opt.value = id;
+            opt.textContent = `${info.koName} (${roleLabelMap[info.role]})`;
+            selectEl.appendChild(opt);
+          });
+      }
+      selectEl.value = data.myHero || "";
+      document.getElementById("mapTypeSelect").value = data.mapType || "any";
+
+      // My Hero Profile Card
+      const myHeroAvatarImg = document.getElementById("myHeroAvatar");
+      const myHeroAvatarTxt = document.getElementById("myHeroAvatarText");
+      if (rec.myHero && rec.myHero.id) {
+        document.getElementById("myHeroName").textContent = rec.myHero.name;
+        document.getElementById("myHeroMeta").textContent = `${roleLabelMap[rec.myHero.role]} · ${rec.myHero.compKo} 조합 성향`;
+        document.getElementById("swapScopeLabel").textContent = `${rec.myHero.name} (${roleLabelMap[rec.myHero.role]}) 맞춤 교체 추천`;
+        myHeroAvatarImg.src = `/heroes/${rec.myHero.id}.png`;
+        myHeroAvatarImg.style.display = "block";
+        myHeroAvatarTxt.style.display = "none";
+      } else {
+        document.getElementById("myHeroName").textContent = "미지정";
+        document.getElementById("myHeroMeta").textContent = "내 영웅을 픽하면 역할군 맞춤 픽을 집중 분석합니다";
+        document.getElementById("swapScopeLabel").textContent = "상성 + 패치 메타 + 대회 전술 반영";
+        myHeroAvatarImg.style.display = "none";
+        myHeroAvatarTxt.style.display = "block";
+      }
+
+      // Top 3 Swap recommendations
+      const swapGrid = document.getElementById("swapGrid");
+      swapGrid.innerHTML = "";
+      (rec.swapRecommendations || []).forEach((item, idx) => {
+        const div = document.createElement("div");
+        div.className = `swap-card rank-${idx + 1}`;
+        const scorePct = Math.min(100, Math.max(0, item.score));
+        div.innerHTML = `
+          <div>
+            <div class="swap-header">
+              <img class="swap-thumb" src="/heroes/${item.id}.png" onerror="this.src=''" />
+              <div>
+                <span class="swap-badge">${idx + 1}순위 추천 (${roleLabelMap[item.role]})</span>
+                <div class="swap-name">${item.name}</div>
+              </div>
+            </div>
+          </div>
+          <div class="score-bar-wrap">
+            <div class="score-info">
+              <span>적합도 점수</span>
+              <span class="score-value">${item.score}점</span>
+            </div>
+            <div class="score-track">
+              <div class="score-fill" style="width: ${scorePct}%;"></div>
+            </div>
+          </div>
+          <div class="swap-reason">${item.reason}</div>
+        `;
+        swapGrid.appendChild(div);
+      });
+
+      // 5v5 Team Rosters
+      const allies = data.allies || [];
+      const enemies = data.enemies || [];
+      document.getElementById("allyCount").textContent = `${allies.length} / 5`;
+      document.getElementById("enemyCount").textContent = `${enemies.length} / 5`;
+
+      const allySlotsEl = document.getElementById("allySlots");
+      let allyHtml = "";
+      for (let i = 0; i < 5; i++) {
+        const id = allies[i];
+        if (id && heroes[id]) {
+          const h = heroes[id];
+          const isMe = id === data.myHero;
+          allyHtml += `
+            <div class="hero-slot is-ally ${isMe ? "is-me" : ""}">
+              ${isMe ? '<span class="me-indicator">ME</span>' : ''}
+              <img class="slot-avatar" src="/heroes/${id}.png" onerror="this.src=''" />
+              <div class="slot-name">${h.koName}</div>
+              <div class="slot-role-tag">${roleLabelMap[h.role]}</div>
+            </div>
+          `;
+        } else {
+          allyHtml += `
+            <div class="hero-slot is-ally empty-slot">
+              <div class="slot-avatar" style="display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-weight:700;">?</div>
+              <div class="slot-name" style="color:var(--text-dim);">대기 중</div>
+              <div class="slot-role-tag">-</div>
+            </div>
+          `;
+        }
+      }
+      allySlotsEl.innerHTML = allyHtml;
+
+      const enemySlotsEl = document.getElementById("enemySlots");
+      let enemyHtml = "";
+      for (let i = 0; i < 5; i++) {
+        const id = enemies[i];
+        if (id && heroes[id]) {
+          const h = heroes[id];
+          enemyHtml += `
+            <div class="hero-slot is-enemy">
+              <img class="slot-avatar" src="/heroes/${id}.png" onerror="this.src=''" />
+              <div class="slot-name">${h.koName}</div>
+              <div class="slot-role-tag">${roleLabelMap[h.role]}</div>
+            </div>
+          `;
+        } else {
+          enemyHtml += `
+            <div class="hero-slot is-enemy empty-slot">
+              <div class="slot-avatar" style="display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-weight:700;">?</div>
+              <div class="slot-name" style="color:var(--text-dim);">미확인</div>
+              <div class="slot-role-tag">-</div>
+            </div>
+          `;
+        }
+      }
+      enemySlotsEl.innerHTML = enemyHtml;
+
+      // Role recommendations
+      ["tank", "dps", "support"].forEach((role) => {
+        const targetId = role === "tank" ? "roleTank" : role === "dps" ? "roleDps" : "roleSupport";
+        document.getElementById(targetId).innerHTML = (rec.topByRole[role] || [])
+          .map(
+            (item) => `
+            <div class="role-item">
+              <img class="role-item-thumb" src="/heroes/${item.id}.png" onerror="this.src=''" />
+              <div class="role-item-content">
+                <div class="role-item-name">${item.name}</div>
+                <div class="role-item-reason">${item.reason}</div>
+              </div>
+              <div class="role-item-score">${item.score}점</div>
+            </div>
+          `
+          )
+          .join("");
+      });
+
+      // Patch & Tournament badges
+      document.getElementById("patchTitleText").textContent = `반영 기준: ${patchMeta.latestPatchTitle}`;
+      const patchBadgesEl = document.getElementById("patchHeroBadges");
+      const adjEntries = Object.entries(patchMeta.heroAdjustments || {});
+      patchBadgesEl.innerHTML = adjEntries.length
+        ? adjEntries
+            .map(([id, info]) => {
+              const name = heroes[id] ? heroes[id].koName : id;
+              const cls = info.delta > 0 ? "meta-buff" : info.delta < 0 ? "meta-nerf" : "";
+              const sign = info.delta > 0 ? `+${info.delta}` : `${info.delta}`;
+              return `<span class="meta-tag ${cls}" title="${info.summary}">${name} ${info.status} (${sign})</span>`;
+            })
+            .join("")
+        : `<span style="color:var(--text-muted);font-size:12px;">공식 패치 데이터를 동기화하거나 본문을 입력하세요.</span>`;
+
+      document.getElementById("proSummaryText").textContent = `누적 ${insights.totalMatches}경기 집계`;
+      document.getElementById("proTopHeroes").innerHTML = (insights.topProHeroes || []).length
+        ? insights.topProHeroes
+            .map((h) => `<span class="meta-tag" style="border-color:rgba(255,156,26,0.3);color:var(--accent);">${h.name} (${h.picks}픽 · ${h.winRate}%)</span>`)
+            .join("")
+        : `<span style="color:var(--text-muted);font-size:12px;">대회 조합을 등록하면 메타 핵심 픽이 자동 분석됩니다.</span>`;
+
+      // Pro strategies list
+      const proListEl = document.getElementById("proList");
+      proListEl.innerHTML = (insights.recentPatterns || []).length
+        ? insights.recentPatterns
+            .map((row) => {
+              const aNames = (row.allies || []).map((id) => (heroes[id] ? heroes[id].koName : id)).join(", ") || "없음";
+              const eNames = (row.enemies || []).map((id) => (heroes[id] ? heroes[id].koName : id)).join(", ") || "없음";
+              const outcomeText = row.outcome === "win" ? "승리" : "패배";
+              return `
+                <div class="pro-record">
+                  <div>
+                    <div><strong>[${compLabelMap[row.comp] || row.comp} · ${mapLabelMap[row.mapType] || "전체"} · ${outcomeText}]</strong> ${row.note || row.situation || "전술 기록"}</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">아군: ${aNames} vs 적군: ${eNames}</div>
+                  </div>
+                  <button class="btn btn-danger" style="padding:3px 8px;font-size:11px;" onclick="deleteStrategy(${row.id})">삭제</button>
+                </div>
+              `;
+            })
+            .join("")
+        : "";
+
+      renderChips();
+    }
+
+    fetch("/api/state").then((r) => r.json()).then(render).catch(() => {});
+
+    const es = new EventSource("/events");
+    es.onmessage = (event) => {
       try {
-        applyState(JSON.parse(event.data));
+        render(JSON.parse(event.data));
       } catch (e) {}
     };
   </script>
