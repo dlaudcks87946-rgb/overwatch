@@ -1,0 +1,7 @@
+node_modules/
+debug_crops/
+tab_screen.png
+새 폴더/
+*.log
+__pycache__/
+.DS_Store
